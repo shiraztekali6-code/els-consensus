@@ -9,7 +9,7 @@ app = FastAPI(title="ELS Annotation Server")
 
 # Serve UI and images
 app.mount("/images", StaticFiles(directory="images"), name="images")
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 DATA_PATH = "data/annotations.json"
 
