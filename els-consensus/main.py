@@ -10,16 +10,33 @@ from config.schema import QUESTION_SCHEMA
 
 app = FastAPI(title="ELS Consensus Annotation Server")
 
-# ------------------
-# Data
-# ------------------
-DATA_PATH = "data/annotations.json"
+# =========================
+# Static files
+# =========================
 
+# images will be available at /images/els1.png
+app.mount("/images", StaticFiles(directory="images"), name="images")
+
+# frontend (index.html + app.js) served at /
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+
+
+# =========================
+# Paths
+# =========================
+
+DATA_PATH = "data/annotations.json"
+IMAGES_DIR = "images"
+
+
+# =========================
+# Utilities
+# =========================
 
 def load_data():
     if not os.path.exists(DATA_PATH):
         return {}
-    with open(DATA_PATH) as f:
+    with open(DATA_PATH, "r") as f:
         return json.load(f)
 
 
@@ -29,47 +46,110 @@ def save_data(data):
         json.dump(data, f, indent=2)
 
 
-# ------------------
+def validate_answers(answers: dict):
+    for question, spec in QUESTION_SCHEMA.items():
+        if question not in answers:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Missing answer for '{question}'"
+            )
+
+        value = answers[question]
+
+        if spec["type"] == "multi":
+            if not isinstance(value, list):
+                raise HTTPException(400, f"'{question}' must be a list")
+            for v in value:
+                if v not in spec["options"]:
+                    raise HTTPException(400, f"Invalid value '{v}' for '{question}'")
+
+        else:  # single
+            if value not in spec["options"]:
+                raise HTTPException(400, f"Invalid value '{value}' for '{question}'")
+
+
+# =========================
 # Models
-# ------------------
+# =========================
+
 class Annotation(BaseModel):
     image_id: str
     annotator_id: str
     answers: Dict[str, Union[str, List[str]]]
 
 
-# ------------------
-# API ROUTES
-# ------------------
+# =========================
+# API routes
+# =========================
 
 @app.get("/schema")
 def get_schema():
+    """
+    Returns the QUESTION_SCHEMA to the frontend
+    """
     return QUESTION_SCHEMA
 
 
-@app.get("/api/images-list")
-def images_list():
-    files = sorted(
-        f for f in os.listdir("images")
-        if f.lower().endswith((".png", ".jpg", ".jpeg"))
-    )
-    return files
+@app.get("/images-list")
+def get_images_list():
+    """
+    Returns sorted list of image filenames
+    """
+    if not os.path.exists(IMAGES_DIR):
+        return []
+
+    images = [
+        f for f in os.listdir(IMAGES_DIR)
+        if f.lower().endswith((".png", ".jpg", ".jpeg", ".tif", ".tiff"))
+    ]
+
+    images.sort()
+    return images
 
 
-@app.post("/api/annotate")
-def annotate(a: Annotation):
+@app.post("/annotate")
+def submit_annotation(annotation: Annotation):
+    validate_answers(annotation.answers)
+
     data = load_data()
-    data.setdefault(a.image_id, []).append(a.dict())
+
+    data.setdefault(annotation.image_id, []).append({
+        "annotator_id": annotation.annotator_id,
+        "answers": annotation.answers
+    })
+
     save_data(data)
     return {"ok": True}
 
 
-# ------------------
-# Static files
-# ------------------
+# =========================
+# Consensus (admin utility)
+# =========================
 
-# images
-app.mount("/images", StaticFiles(directory="images"), name="images")
+@app.get("/admin/consensus/{image_id}")
+def get_consensus(image_id: str):
+    data = load_data()
 
-# frontend — שים לב: לא "/" אלא בסוף!
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+    if image_id not in data or len(data[image_id]) == 0:
+        return {
+            "image_id": image_id,
+            "n_annotators": 0,
+            "consensus": {}
+        }
+
+    consensus = {}
+
+    for question in QUESTION_SCHEMA:
+        values = []
+        for ann in data[image_id]:
+            ans = ann["answers"][question]
+            values.extend(ans if isinstance(ans, list) else [ans])
+
+        if values:
+            consensus[question] = Counter(values).most_common(1)[0][0]
+
+    return {
+        "image_id": image_id,
+        "n_annotators": len(data[image_id]),
+        "consensus": consensus
+    }
