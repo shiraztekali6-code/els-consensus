@@ -1,24 +1,32 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8">
   <title>ELS Consensus Annotation</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    img { max-width: 600px; border: 1px solid #ccc; margin: 20px 0; }
+  </style>
 </head>
 <body>
-  <h1>ELS Consensus Annotation</h1>
 
-  <label>
-    Annotator ID:
-    <input id="annotator" />
-  </label>
+<h1>ELS Consensus Annotation</h1>
 
-  <hr>
+<label>
+  Annotator ID:
+  <input id="annotator" type="text">
+</label>
 
-  <img id="image" width="400" />
-  <p id="counter"></p>
+<hr>
 
-  <button onclick="submit()">Submit</button>
+<div>
+  <img id="els-image" alt="ELS image">
+</div>
 
-  <script src="app.js"></script>
+<p id="counter"></p>
+
+<button onclick="nextImage()">Next image</button>
+
+<script src="app.js"></script>
 </body>
 </html>
