@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ELS Annotation</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h2 id="image-title"></h2>
+  <img id="els-image" width="600"><br><br>
+  <form id="form"></form>
+  <button onclick="submit()">Submit</button>
+
+  <script src="app.js"></script>
+</body>
+</html>

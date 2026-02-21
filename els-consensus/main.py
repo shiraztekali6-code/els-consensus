@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Dict, List, Union
 from collections import Counter
@@ -9,17 +10,18 @@ from config.schema import QUESTION_SCHEMA
 
 app = FastAPI(title="ELS Consensus Annotation Server")
 
+# ---------- Static files ----------
+app.mount("/images", StaticFiles(directory="images"), name="images")
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+
 DATA_PATH = "data/annotations.json"
 
 
-# --------------------
-# Utilities
-# --------------------
-
+# ---------- Utilities ----------
 def load_data():
     if not os.path.exists(DATA_PATH):
         return {}
-    with open(DATA_PATH, "r") as f:
+    with open(DATA_PATH) as f:
         return json.load(f)
 
 
@@ -29,141 +31,52 @@ def save_data(data):
         json.dump(data, f, indent=2)
 
 
-def validate_answers(answers: dict):
+def validate_answers(answers):
     for q, spec in QUESTION_SCHEMA.items():
         if q not in answers:
-            raise HTTPException(400, f"Missing answer for '{q}'")
-
+            raise HTTPException(400, f"Missing '{q}'")
         val = answers[q]
-
         if spec["type"] == "multi":
             if not isinstance(val, list):
-                raise HTTPException(400, f"'{q}' must be a list")
+                raise HTTPException(400, f"{q} must be list")
             for v in val:
                 if v not in spec["options"]:
-                    raise HTTPException(400, f"Invalid value '{v}' for '{q}'")
-
-        if spec["type"] == "single":
+                    raise HTTPException(400, f"Invalid {v}")
+        else:
             if val not in spec["options"]:
-                raise HTTPException(400, f"Invalid value '{val}' for '{q}'")
+                raise HTTPException(400, f"Invalid {val}")
 
 
-# --------------------
-# Models
-# --------------------
-
+# ---------- Models ----------
 class Annotation(BaseModel):
     image_id: str
     annotator_id: str
     answers: Dict[str, Union[str, List[str]]]
 
 
-# --------------------
-# Consensus logic
-# --------------------
-
+# ---------- Consensus ----------
 def compute_consensus(annotations):
     consensus = {}
-    flags = {}
-
     for q in QUESTION_SCHEMA:
         values = []
-        for ann in annotations:
-            a = ann["answers"][q]
-            values.extend(a if isinstance(a, list) else [a])
-
-        if not values:
-            consensus[q] = None
-            continue
-
-        counts = Counter(values)
-        top = counts.most_common()
-
-        if len(top) > 1 and top[0][1] == top[1][1]:
-            consensus[q] = "ambiguous"
-            flags[q] = "tie"
-        else:
-            consensus[q] = top[0][0]
-
-    return consensus, flags
+        for a in annotations:
+            ans = a["answers"][q]
+            values.extend(ans if isinstance(ans, list) else [ans])
+        if values:
+            consensus[q] = Counter(values).most_common(1)[0][0]
+    return consensus
 
 
-# --------------------
-# Routes
-# --------------------
-
-@app.get("/")
-def root():
-    return {"status": "ELS annotation server running"}
-
-
+# ---------- API ----------
 @app.post("/annotate")
-def submit_annotation(annotation: Annotation):
-    validate_answers(annotation.answers)
-
+def annotate(a: Annotation):
+    validate_answers(a.answers)
     data = load_data()
-    data.setdefault(annotation.image_id, []).append({
-        "annotator_id": annotation.annotator_id,
-        "answers": annotation.answers
-    })
-
+    data.setdefault(a.image_id, []).append(a.dict())
     save_data(data)
     return {"ok": True}
 
 
-# ---------- ADMIN ----------
-
-def check_admin(token: str):
-    if token != os.environ.get("ADMIN_TOKEN"):
-        raise HTTPException(403, "Forbidden")
-
-
-@app.get("/admin/image/{image_id}")
-def admin_image(image_id: str, token: str):
-    check_admin(token)
-    data = load_data()
-    anns = data.get(image_id, [])
-    return {
-        "image_id": image_id,
-        "n_annotators": len(anns),
-        "annotations": anns
-    }
-
-
-@app.get("/admin/consensus/{image_id}")
-def admin_consensus(image_id: str, token: str):
-    check_admin(token)
-    data = load_data()
-    anns = data.get(image_id, [])
-    consensus, flags = compute_consensus(anns) if anns else ({}, {})
-    return {
-        "image_id": image_id,
-        "n_annotators": len(anns),
-        "consensus": consensus,
-        "flags": flags
-    }
-
-
-@app.get("/admin/vectors")
-def admin_vectors(token: str):
-    check_admin(token)
-    data = load_data()
-    output = []
-
-    for image_id, anns in data.items():
-        consensus, flags = compute_consensus(anns)
-        vector = {}
-
-        for q, spec in QUESTION_SCHEMA.items():
-            for opt in spec["options"]:
-                key = f"{q}:{opt}"
-                vector[key] = int(consensus.get(q) == opt)
-
-        output.append({
-            "image_id": image_id,
-            "vector": vector,
-            "n_annotators": len(anns),
-            "flags": flags
-        })
-
-    return output
+@app.get("/schema")
+def schema():
+    return QUESTION_SCHEMA
