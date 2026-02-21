@@ -1,14 +1,57 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>ELS Annotation</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <title>ELS Consensus Annotation</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      max-width: 900px;
+    }
+
+    img {
+      max-width: 600px;
+      display: block;
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+    }
+
+    .question {
+      margin-bottom: 20px;
+      padding: 10px;
+      border: 1px solid #eee;
+    }
+
+    .question h3 {
+      margin: 0 0 5px 0;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+  </style>
 </head>
+
 <body>
-  <h2 id="image-title"></h2>
-  <img id="els-image" width="600"><br><br>
-  <form id="form"></form>
-  <button onclick="submit()">Submit</button>
+  <h1>ELS Consensus Annotation</h1>
+
+  <label>
+    Annotator ID:
+    <input type="text" id="annotatorId" />
+  </label>
+
+  <hr />
+
+  <img id="image" src="" alt="ELS image" />
+
+  <form id="annotationForm"></form>
+
+  <button onclick="submitAnnotation()">Submit</button>
+
+  <p id="status"></p>
 
   <script src="app.js"></script>
 </body>
