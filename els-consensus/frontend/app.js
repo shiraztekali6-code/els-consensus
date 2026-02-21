@@ -1,121 +1,72 @@
-// ===============================
-// Global state
-// ===============================
-let schema = {};
 let images = [];
-let currentIndex = 0;
+let schema = {};
+let index = 0;
 
-// ===============================
-// Init
-// ===============================
 async function init() {
-  await loadSchema();
-  await loadImages();
-  showCurrentImage();
+  images = await fetch("/images-list").then(r => r.json());
+  schema = await fetch("/schema").then(r => r.json());
+  render();
 }
 
-// ===============================
-// Load schema
-// ===============================
-async function loadSchema() {
-  const res = await fetch("/schema");
-  schema = await res.json();
-}
-
-// ===============================
-// Load images list from backend
-// ===============================
-async function loadImages() {
-  const res = await fetch("/images-list");
-  images = await res.json();
-}
-
-// ===============================
-// Show image + form
-// ===============================
-function showCurrentImage() {
-  if (currentIndex >= images.length) {
+function render() {
+  if (index >= images.length) {
     document.body.innerHTML = "<h2>All images annotated 🎉</h2>";
     return;
   }
 
-  const imageName = images[currentIndex];
-  document.getElementById("image").src = `/images/${imageName}`;
-  document.getElementById("status").innerText =
-    `Image ${currentIndex + 1} / ${images.length}`;
+  document.getElementById("els-image").src = "/images/" + images[index];
 
-  buildForm();
-}
+  const qDiv = document.getElementById("questions");
+  qDiv.innerHTML = "";
 
-// ===============================
-// Build form dynamically
-// ===============================
-function buildForm() {
-  const form = document.getElementById("annotationForm");
-  form.innerHTML = "";
-
-  for (const [question, spec] of Object.entries(schema)) {
+  for (const [q, spec] of Object.entries(schema)) {
     const div = document.createElement("div");
-    div.className = "question";
+    div.innerHTML = `<h4>${q}</h4>`;
 
-    div.innerHTML = `<b>${question}</b><br><small>${spec.description || ""}</small><br>`;
+    spec.options.forEach(opt => {
+      const input = document.createElement("input");
+      input.type = spec.type === "multi" ? "checkbox" : "radio";
+      input.name = q;
+      input.value = opt;
 
-    if (spec.type === "multi") {
-      spec.options.forEach(opt => {
-        div.innerHTML += `
-          <label>
-            <input type="checkbox" name="${question}" value="${opt}">
-            ${opt}
-          </label><br>`;
-      });
-    } else {
-      spec.options.forEach(opt => {
-        div.innerHTML += `
-          <label>
-            <input type="radio" name="${question}" value="${opt}" required>
-            ${opt}
-          </label><br>`;
-      });
-    }
+      div.appendChild(input);
+      div.appendChild(document.createTextNode(opt));
+      div.appendChild(document.createElement("br"));
+    });
 
-    div.innerHTML += "<br>";
-    form.appendChild(div);
+    qDiv.appendChild(div);
   }
 }
 
-// ===============================
-// Submit
-// ===============================
 async function submitAnnotation() {
-  const annotatorId = document.getElementById("annotatorId").value.trim();
-  if (!annotatorId) {
-    alert("Please enter Annotator ID");
+  const annotator = document.getElementById("annotator").value;
+  if (!annotator) {
+    alert("Annotator ID required");
     return;
   }
 
   const answers = {};
-
-  for (const question of Object.keys(schema)) {
-    const inputs = document.querySelectorAll(`[name="${question}"]`);
-    const values = [];
-    inputs.forEach(i => i.checked && values.push(i.value));
-
-    answers[question] =
-      schema[question].type === "multi" ? values : values[0] || null;
+  for (const q in schema) {
+    const inputs = document.querySelectorAll(`[name="${q}"]`);
+    const vals = [];
+    inputs.forEach(i => {
+      if (i.checked) vals.push(i.value);
+    });
+    answers[q] = schema[q].type === "multi" ? vals : vals[0];
   }
 
   await fetch("/annotate", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {"Content-Type": "application/json"},
     body: JSON.stringify({
-      image_id: images[currentIndex],
-      annotator_id: annotatorId,
+      image_id: images[index],
+      annotator_id: annotator,
       answers: answers
     })
   });
 
-  currentIndex++;
-  showCurrentImage();
+  index++;
+  render();
 }
 
 init();
