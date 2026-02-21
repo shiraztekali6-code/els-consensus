@@ -2,41 +2,35 @@ let images = [];
 let index = 0;
 
 async function loadImages() {
-  const res = await fetch("/images-list");
+  const res = await fetch("/api/images-list");
   images = await res.json();
+
+  if (images.length === 0) {
+    document.getElementById("counter").innerText = "No images found";
+    return;
+  }
+
   showImage();
 }
 
 function showImage() {
-  if (index >= images.length) {
-    document.body.innerHTML = "<h2>All images annotated 🎉</h2>";
-    return;
-  }
+  const img = document.getElementById("els-image");
+  const name = images[index];
 
-  document.getElementById("image").src = "/images/" + images[index];
+  img.src = `/images/${name}`;
+  img.alt = name;
+
   document.getElementById("counter").innerText =
     `Image ${index + 1} / ${images.length}`;
 }
 
-async function submit() {
-  const annotator = document.getElementById("annotator").value;
-  if (!annotator) {
-    alert("Please enter annotator ID");
-    return;
+function nextImage() {
+  if (index < images.length - 1) {
+    index++;
+    showImage();
+  } else {
+    alert("All images annotated 🎉");
   }
-
-  await fetch("/annotate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      image_id: images[index],
-      annotator_id: annotator,
-      answers: {} // נרחיב בהמשך
-    })
-  });
-
-  index++;
-  showImage();
 }
 
 loadImages();
