@@ -2,11 +2,11 @@ let images = [];
 let index = 0;
 
 async function loadImages() {
-  const res = await fetch("/api/images-list");
+  const res = await fetch("/images-list");
   images = await res.json();
 
   if (images.length === 0) {
-    document.getElementById("counter").innerText = "No images found";
+    alert("No images found");
     return;
   }
 
@@ -15,22 +15,19 @@ async function loadImages() {
 
 function showImage() {
   const img = document.getElementById("els-image");
-  const name = images[index];
-
-  img.src = `/images/${name}`;
-  img.alt = name;
+  img.src = `/images/${images[index]}`;
 
   document.getElementById("counter").innerText =
     `Image ${index + 1} / ${images.length}`;
 }
 
 function nextImage() {
-  if (index < images.length - 1) {
-    index++;
-    showImage();
-  } else {
-    alert("All images annotated 🎉");
+  index++;
+  if (index >= images.length) {
+    alert("All images done 🎉");
+    return;
   }
+  showImage();
 }
 
 loadImages();
