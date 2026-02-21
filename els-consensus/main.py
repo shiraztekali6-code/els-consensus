@@ -42,7 +42,7 @@ class Annotation(BaseModel):
 # API ROUTES
 # ------------------
 
-@app.get("/api/schema")
+@app.get("/schema")
 def get_schema():
     return QUESTION_SCHEMA
 
