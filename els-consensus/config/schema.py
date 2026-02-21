@@ -1,27 +1,61 @@
-# config/schema.py
-
 QUESTION_SCHEMA = {
-    "cell_types": {
+    "cell_types_present": {
         "type": "multi",
-        "options": ["B", "T", "Ki67"]
+        "options": [
+            "B cells",
+            "T cells",
+            "Proliferating cells (Ki67+)"
+        ]
     },
-    "dominant_population": {
+
+    "dominant_cell_type": {
         "type": "single",
-        "options": ["B", "T", "Ki67", "mixed", "few_cells"]
+        "options": [
+            "B cells dominant",
+            "T cells dominant",
+            "Ki67+ dominant",
+            "No dominant population",
+            "Very few cells"
+        ]
     },
-    "density": {
+
+    "cell_density": {
         "type": "single",
-        "options": ["high", "moderate", "low", "very_low"]
+        "options": [
+            "High density",
+            "Moderate density",
+            "Low density",
+            "Very low density"
+        ]
     },
+
     "b_t_separation": {
         "type": "single",
-        "options": ["na", "none", "low", "moderate", "high"]
+        "options": [
+            "Not applicable",
+            "Not separated",
+            "Low separation",
+            "Moderate separation",
+            "High separation"
+        ]
     },
-    "t_ring": {
+
+    "t_cell_ring": {
         "type": "single",
-        "options": ["na", "none", "weak", "moderate", "clear"]
+        "options": [
+            "Not applicable",
+            "No ring",
+            "Weak ring",
+            "Moderate ring",
+            "Clear ring"
+        ]
     },
-    "gc_like": {
-        "type": "boolean"
+
+    "gc_like_structure": {
+        "type": "single",
+        "options": [
+            "No GC-like structure",
+            "GC-like structure present"
+        ]
     }
 }
