@@ -1,12 +1,12 @@
 // ===============================
 // Global state
 // ===============================
-let schema = null;
+let schema = {};
 let images = [];
 let currentIndex = 0;
 
 // ===============================
-// Load everything on page load
+// Init
 // ===============================
 async function init() {
   await loadSchema();
@@ -15,54 +15,40 @@ async function init() {
 }
 
 // ===============================
-// Load schema from backend
+// Load schema
 // ===============================
 async function loadSchema() {
   const res = await fetch("/schema");
-  if (!res.ok) {
-    document.getElementById("status").innerText = "Failed to load schema";
-    return;
-  }
   schema = await res.json();
 }
 
 // ===============================
-// Load images list (from /images)
+// Load images list from backend
 // ===============================
 async function loadImages() {
-  // Hard-coded image list approach:
-  // GitHub/Render does NOT allow directory listing.
-  // 👉 You must maintain this list manually or via a text file.
-
-  images = [
-    "image1.png",
-    "image2.png",
-    "image3.png"
-  ];
-
-  // If you renamed files – update names here
+  const res = await fetch("/images-list");
+  images = await res.json();
 }
 
 // ===============================
-// Display current image + questions
+// Show image + form
 // ===============================
 function showCurrentImage() {
   if (currentIndex >= images.length) {
-    document.getElementById("status").innerText =
-      "All images annotated 🎉";
-    document.getElementById("image").style.display = "none";
-    document.getElementById("annotationForm").innerHTML = "";
+    document.body.innerHTML = "<h2>All images annotated 🎉</h2>";
     return;
   }
 
   const imageName = images[currentIndex];
   document.getElementById("image").src = `/images/${imageName}`;
+  document.getElementById("status").innerText =
+    `Image ${currentIndex + 1} / ${images.length}`;
 
   buildForm();
 }
 
 // ===============================
-// Build annotation form dynamically
+// Build form dynamically
 // ===============================
 function buildForm() {
   const form = document.getElementById("annotationForm");
@@ -72,48 +58,33 @@ function buildForm() {
     const div = document.createElement("div");
     div.className = "question";
 
-    const title = document.createElement("h3");
-    title.innerText = question;
-    div.appendChild(title);
-
-    if (spec.description) {
-      const desc = document.createElement("p");
-      desc.innerText = spec.description;
-      div.appendChild(desc);
-    }
+    div.innerHTML = `<b>${question}</b><br><small>${spec.description || ""}</small><br>`;
 
     if (spec.type === "multi") {
       spec.options.forEach(opt => {
-        const label = document.createElement("label");
-        const input = document.createElement("input");
-        input.type = "checkbox";
-        input.name = question;
-        input.value = opt;
-        label.appendChild(input);
-        label.appendChild(document.createTextNode(" " + opt));
-        div.appendChild(label);
-        div.appendChild(document.createElement("br"));
+        div.innerHTML += `
+          <label>
+            <input type="checkbox" name="${question}" value="${opt}">
+            ${opt}
+          </label><br>`;
       });
     } else {
       spec.options.forEach(opt => {
-        const label = document.createElement("label");
-        const input = document.createElement("input");
-        input.type = "radio";
-        input.name = question;
-        input.value = opt;
-        label.appendChild(input);
-        label.appendChild(document.createTextNode(" " + opt));
-        div.appendChild(label);
-        div.appendChild(document.createElement("br"));
+        div.innerHTML += `
+          <label>
+            <input type="radio" name="${question}" value="${opt}" required>
+            ${opt}
+          </label><br>`;
       });
     }
 
+    div.innerHTML += "<br>";
     form.appendChild(div);
   }
 }
 
 // ===============================
-// Submit annotation
+// Submit
 // ===============================
 async function submitAnnotation() {
   const annotatorId = document.getElementById("annotatorId").value.trim();
@@ -127,39 +98,24 @@ async function submitAnnotation() {
   for (const question of Object.keys(schema)) {
     const inputs = document.querySelectorAll(`[name="${question}"]`);
     const values = [];
+    inputs.forEach(i => i.checked && values.push(i.value));
 
-    inputs.forEach(input => {
-      if (input.checked) values.push(input.value);
-    });
-
-    if (schema[question].type === "multi") {
-      answers[question] = values;
-    } else {
-      answers[question] = values[0] || null;
-    }
+    answers[question] =
+      schema[question].type === "multi" ? values : values[0] || null;
   }
 
-  const payload = {
-    image_id: images[currentIndex],
-    annotator_id: annotatorId,
-    answers: answers
-  };
-
-  const res = await fetch("/annotate", {
+  await fetch("/annotate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({
+      image_id: images[currentIndex],
+      annotator_id: annotatorId,
+      answers: answers
+    })
   });
-
-  if (!res.ok) {
-    alert("Failed to submit annotation");
-    return;
-  }
 
   currentIndex++;
   showCurrentImage();
 }
 
-// ===============================
 init();
-// ===============================
