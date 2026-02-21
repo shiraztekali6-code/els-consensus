@@ -1,10 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Union
+from collections import Counter
 import json
 import os
 
-from config.schema import QUESTION_SCHEMA
+from config.schema import QUESTION_SCHEMA  # schema.py must be in the same folder
 
 app = FastAPI(title="ELS Consensus Annotation Server")
 
@@ -23,6 +24,7 @@ def load_data():
 
 
 def save_data(data):
+    os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
     with open(DATA_PATH, "w") as f:
         json.dump(data, f, indent=2)
 
@@ -76,6 +78,43 @@ class Annotation(BaseModel):
 
 
 # -----------------------
+# Consensus logic
+# -----------------------
+
+def compute_consensus(annotations: list):
+    """
+    annotations: list of {"annotator_id": ..., "answers": {...}}
+    """
+    consensus = {}
+    flags = {}
+
+    for question, spec in QUESTION_SCHEMA.items():
+        values = []
+
+        for ann in annotations:
+            answer = ann["answers"][question]
+            if isinstance(answer, list):
+                values.extend(answer)
+            else:
+                values.append(answer)
+
+        if not values:
+            consensus[question] = None
+            continue
+
+        counts = Counter(values)
+        most_common = counts.most_common()
+
+        if len(most_common) > 1 and most_common[0][1] == most_common[1][1]:
+            consensus[question] = "ambiguous"
+            flags[question] = "tie"
+        else:
+            consensus[question] = most_common[0][0]
+
+    return consensus, flags
+
+
+# -----------------------
 # Routes
 # -----------------------
 
@@ -124,3 +163,68 @@ def admin_view_image(image_id: str, token: str):
         "n_annotators": len(data[image_id]),
         "annotations": data[image_id]
     }
+
+
+@app.get("/admin/consensus/{image_id}")
+def admin_consensus(image_id: str, token: str):
+    ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN")
+
+    if ADMIN_TOKEN is None or token != ADMIN_TOKEN:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    data = load_data()
+
+    if image_id not in data or len(data[image_id]) == 0:
+        return {
+            "image_id": image_id,
+            "n_annotators": 0,
+            "consensus": {},
+            "flags": {}
+        }
+
+    consensus, flags = compute_consensus(data[image_id])
+
+    return {
+        "image_id": image_id,
+        "n_annotators": len(data[image_id]),
+        "consensus": consensus,
+        "flags": flags
+    }
+
+
+@app.get("/admin/vectors")
+def admin_vectors(token: str):
+    ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN")
+
+    if ADMIN_TOKEN is None or token != ADMIN_TOKEN:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    data = load_data()
+    vectors = []
+
+    for image_id, annotations in data.items():
+        consensus, flags = compute_consensus(annotations)
+        vector = {}
+
+        for question, spec in QUESTION_SCHEMA.items():
+            if spec["type"] == "multi":
+                for opt in spec["options"]:
+                    key = f"{question}:{opt}"
+                    present = any(
+                        opt in ann["answers"][question]
+                        for ann in annotations
+                    )
+                    vector[key] = 1 if present else 0
+            else:
+                for opt in spec["options"]:
+                    key = f"{question}:{opt}"
+                    vector[key] = 1 if consensus.get(question) == opt else 0
+
+        vectors.append({
+            "image_id": image_id,
+            "vector": vector,
+            "n_annotators": len(annotations),
+            "flags": flags
+        })
+
+    return vectors
