@@ -1,7 +1,6 @@
 let images = [];
 let schema = {};
 let index = 0;
-let submitted = false;
 
 // ---------- init ----------
 async function init() {
@@ -18,10 +17,8 @@ async function init() {
 
 // ---------- render ----------
 function render() {
-  submitted = false;
   document.getElementById("error").innerText = "";
 
-  // image
   document.getElementById("els-image").src = "/images/" + images[index];
   document.getElementById("counter").innerText =
     `Image ${index + 1} / ${images.length}`;
@@ -29,7 +26,7 @@ function render() {
   buildForm();
 }
 
-// ---------- build form from schema ----------
+// ---------- build form ----------
 function buildForm() {
   const form = document.getElementById("annotation-form");
   form.innerHTML = "";
@@ -90,7 +87,7 @@ function collectAnswers() {
 }
 
 // ---------- submit ----------
-function submitAndNext() {
+async function submitAndNext() {
   const annotator = document.getElementById("annotator").value.trim();
   if (!annotator) {
     document.getElementById("error").innerText =
@@ -105,16 +102,24 @@ function submitAndNext() {
     return;
   }
 
-  // כרגע: רק בדיקה לוגית
-  console.log({
+  const payload = {
     image_id: images[index],
     annotator_id: annotator,
     answers: answers
+  };
+
+  const res = await fetch("/annotate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
   });
 
-  submitted = true;
+  if (!res.ok) {
+    document.getElementById("error").innerText =
+      "Failed to save annotation. Please try again.";
+    return;
+  }
 
-  // next image
   index++;
   if (index >= images.length) {
     document.body.innerHTML = "<h2>All images annotated 🎉</h2>";
