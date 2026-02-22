@@ -4,14 +4,28 @@ let index = 0;
 
 // ---------- init ----------
 async function init() {
-  images = await fetch("/images-list").then(r => r.json());
+  const annotator = localStorage.getItem("annotator_id");
+  if (annotator) {
+    document.getElementById("annotator").value = annotator;
+    await loadForAnnotator(annotator);
+  } else {
+    schema = await fetch("/schema").then(r => r.json());
+  }
+}
+
+// ---------- load images for annotator ----------
+async function loadForAnnotator(annotator) {
+  localStorage.setItem("annotator_id", annotator);
+
   schema = await fetch("/schema").then(r => r.json());
+  images = await fetch(`/images-list/${annotator}`).then(r => r.json());
 
   if (images.length === 0) {
-    alert("No images found");
+    document.body.innerHTML = "<h2>All images annotated 🎉</h2>";
     return;
   }
 
+  index = 0;
   render();
 }
 
@@ -92,6 +106,12 @@ async function submitAndNext() {
   if (!annotator) {
     document.getElementById("error").innerText =
       "Annotator ID is required.";
+    return;
+  }
+
+  // אם זה annotator חדש — טוענים לו רשימת תמונות
+  if (images.length === 0) {
+    await loadForAnnotator(annotator);
     return;
   }
 
