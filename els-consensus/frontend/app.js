@@ -1,92 +1,104 @@
-let images = [];
+// frontend/app.js
+
 let schema = null;
-let doneSet = new Set();
-let idx = 0;
+let images = [];
+let doneSet = new Set();   // from server (/annotated/<annotator>)
+let currentIndex = 0;
 
 const elAnnotator = document.getElementById("annotatorId");
 const elImg = document.getElementById("elsImage");
 const elQuestions = document.getElementById("questions");
 const elCounter = document.getElementById("imgCounter");
 const elStatus = document.getElementById("status");
-const btnSubmit = document.getElementById("btnSubmit");
+const elError = document.getElementById("error");
 const btnResume = document.getElementById("btnResume");
+const btnSubmit = document.getElementById("btnSubmit");
 
-function setStatus(msg) { if (elStatus) elStatus.textContent = msg || ""; }
-function getAnnotatorId() { return (elAnnotator?.value || "").trim(); }
+const LS_LAST_ANNOTATOR = "els.lastAnnotator";
 
-function imageUrl(filename) {
-  return `/images/${encodeURIComponent(filename)}?v=${Date.now()}`;
+function setStatus(msg) { elStatus.textContent = msg || ""; }
+function setError(msg) { elError.textContent = msg || ""; }
+
+function getAnnotatorId() {
+  return (elAnnotator.value || "").trim();
 }
 
 async function fetchJSON(path) {
-  const r = await fetch(path, { cache: "no-store" });
-  if (!r.ok) throw new Error(`${path} failed: ${r.status}`);
-  return r.json();
+  const res = await fetch(path, { cache: "no-store" });
+  if (!res.ok) throw new Error(`${path} failed (${res.status})`);
+  return res.json();
 }
 
-function buildQuestionUI() {
-  elQuestions.innerHTML = "";
-  for (const [qKey, spec] of Object.entries(schema)) {
-    const box = document.createElement("div");
-    box.style.border = "1px solid #ddd";
-    box.style.padding = "12px";
-    box.style.margin = "12px 0";
-    box.style.maxWidth = "720px";
+function imageUrl(filename) {
+  // IMPORTANT: absolute path so it works under /ui/
+  return `/images/${encodeURIComponent(filename)}?v=${Date.now()}`;
+}
 
-    const title = document.createElement("div");
-    title.style.fontWeight = "700";
-    title.style.fontSize = "18px";
-    title.textContent = qKey;
-    box.appendChild(title);
+function buildQuestions() {
+  elQuestions.innerHTML = "";
+
+  // Optional: show legend once
+  const legend = document.createElement("div");
+  legend.style.border = "1px solid #ddd";
+  legend.style.padding = "10px";
+  legend.style.margin = "10px 0";
+  legend.innerHTML = `<b>Color Legend</b><br>Yellow = B cells<br>Red = T cells<br>Green = Proliferating cells (Ki67+)`;
+  elQuestions.appendChild(legend);
+
+  for (const [qKey, spec] of Object.entries(schema)) {
+    const fs = document.createElement("fieldset");
+    const lg = document.createElement("legend");
+    lg.textContent = qKey;
+    fs.appendChild(lg);
 
     if (spec.description) {
-      const desc = document.createElement("div");
-      desc.style.margin = "8px 0 10px";
-      desc.textContent = spec.description;
-      box.appendChild(desc);
+      const p = document.createElement("div");
+      p.textContent = spec.description;
+      p.style.margin = "8px 0 10px";
+      fs.appendChild(p);
     }
 
-    spec.options.forEach((opt, i) => {
-      const row = document.createElement("label");
-      row.style.display = "block";
-      row.style.margin = "6px 0";
+    for (const opt of spec.options) {
+      const label = document.createElement("label");
+      label.style.display = "block";
+      label.style.margin = "6px 0";
 
       const input = document.createElement("input");
       input.type = (spec.type === "multi") ? "checkbox" : "radio";
       input.name = qKey;
       input.value = opt;
-      input.dataset.qkey = qKey;
+      input.dataset.q = qKey;
       input.style.marginRight = "10px";
 
-      row.appendChild(input);
-      row.appendChild(document.createTextNode(opt));
-      box.appendChild(row);
-    });
+      label.appendChild(input);
+      label.appendChild(document.createTextNode(opt));
+      fs.appendChild(label);
+    }
 
-    elQuestions.appendChild(box);
+    elQuestions.appendChild(fs);
   }
 }
 
 function clearSelections() {
-  document.querySelectorAll("#questions input").forEach(x => (x.checked = false));
+  elQuestions.querySelectorAll("input").forEach(i => i.checked = false);
 }
 
 function collectAnswers() {
   const answers = {};
   for (const [qKey, spec] of Object.entries(schema)) {
     if (spec.type === "multi") {
-      const checked = Array.from(document.querySelectorAll(`input[data-qkey="${qKey}"]:checked`))
+      const checked = Array.from(document.querySelectorAll(`input[data-q="${qKey}"]:checked`))
         .map(x => x.value);
       answers[qKey] = checked;
     } else {
-      const chosen = document.querySelector(`input[data-qkey="${qKey}"]:checked`);
+      const chosen = document.querySelector(`input[data-q="${qKey}"]:checked`);
       answers[qKey] = chosen ? chosen.value : "";
     }
   }
   return answers;
 }
 
-function validateAllAnswered(answers) {
+function validateAnswers(answers) {
   for (const [qKey, spec] of Object.entries(schema)) {
     if (spec.type === "multi") {
       if (!Array.isArray(answers[qKey]) || answers[qKey].length === 0) return false;
@@ -97,8 +109,8 @@ function validateAllAnswered(answers) {
   return true;
 }
 
-function findNextUnannotated(startAt = 0) {
-  for (let i = startAt; i < images.length; i++) {
+function findFirstUnannotated() {
+  for (let i = 0; i < images.length; i++) {
     if (!doneSet.has(images[i])) return i;
   }
   return -1;
@@ -106,36 +118,33 @@ function findNextUnannotated(startAt = 0) {
 
 function renderImage() {
   if (!images.length) {
-    setStatus("No images found.");
-    elCounter.textContent = "";
     elImg.removeAttribute("src");
+    elCounter.textContent = "No images found";
     return;
   }
 
-  if (idx < 0 || idx >= images.length) idx = 0;
-
-  const filename = images[idx];
-  elCounter.textContent = `Image ${idx + 1} / ${images.length} (${filename})`;
+  const filename = images[currentIndex];
   elImg.src = imageUrl(filename);
-}
-
-async function loadDoneForAnnotator(annotatorId) {
-  const doneList = await fetchJSON(`/annotated/${encodeURIComponent(annotatorId)}`);
-  doneSet = new Set(doneList);
+  elCounter.textContent = `Image ${currentIndex + 1} / ${images.length} (${filename})`;
 }
 
 async function resume() {
-  const annotatorId = getAnnotatorId();
-  if (!annotatorId) {
-    alert("Please enter Annotator ID");
+  setError("");
+  setStatus("");
+
+  const annotator = getAnnotatorId();
+  if (!annotator) {
+    setError("Please enter Annotator ID and click Resume");
     return;
   }
 
-  localStorage.setItem("els.lastAnnotator", annotatorId);
+  localStorage.setItem(LS_LAST_ANNOTATOR, annotator);
 
-  await loadDoneForAnnotator(annotatorId);
+  // Pull from server: what this annotator already submitted
+  const doneList = await fetchJSON(`/annotated/${encodeURIComponent(annotator)}`);
+  doneSet = new Set(doneList);
 
-  const nextIdx = findNextUnannotated(0);
+  const nextIdx = findFirstUnannotated();
   if (nextIdx === -1) {
     elImg.removeAttribute("src");
     elQuestions.innerHTML = "";
@@ -144,49 +153,53 @@ async function resume() {
     return;
   }
 
-  idx = nextIdx;
+  currentIndex = nextIdx;
   clearSelections();
   renderImage();
   setStatus("Resumed ✔");
 }
 
 async function submitAndNext() {
-  const annotatorId = getAnnotatorId();
-  if (!annotatorId) {
-    alert("Please enter Annotator ID");
+  setError("");
+
+  const annotator = getAnnotatorId();
+  if (!annotator) {
+    setError("Annotator ID is required");
     return;
   }
 
   const answers = collectAnswers();
-  if (!validateAllAnswered(answers)) {
-    alert("Please answer ALL questions before continuing.");
+  if (!validateAnswers(answers)) {
+    setError("Please answer ALL questions before continuing.");
     return;
   }
 
   const payload = {
-    image_id: images[idx],
-    annotator_id: annotatorId,
+    image_id: images[currentIndex],
+    annotator_id: annotator,
     answers
   };
 
   setStatus("Saving...");
-  const r = await fetch("/annotate", {
+
+  const res = await fetch("/annotate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
 
-  if (!r.ok) {
-    const txt = await r.text();
-    alert("Submit failed: " + txt);
-    setStatus("Save failed.");
+  if (!res.ok) {
+    const txt = await res.text();
+    setError(`Save failed (${res.status}): ${txt}`);
+    setStatus("");
     return;
   }
 
-  // mark done locally + find next
-  doneSet.add(images[idx]);
+  // Mark locally to move forward immediately
+  doneSet.add(images[currentIndex]);
 
-  const nextIdx = findNextUnannotated(idx + 1);
+  // Find next unannotated
+  const nextIdx = findFirstUnannotated();
   if (nextIdx === -1) {
     elImg.removeAttribute("src");
     elQuestions.innerHTML = "";
@@ -195,30 +208,34 @@ async function submitAndNext() {
     return;
   }
 
-  idx = nextIdx;
+  currentIndex = nextIdx;
   clearSelections();
   renderImage();
   setStatus("Saved ✔");
 }
 
-btnResume?.addEventListener("click", (e) => { e.preventDefault(); resume(); });
-btnSubmit?.addEventListener("click", (e) => { e.preventDefault(); submitAndNext(); });
+btnResume.addEventListener("click", (e) => { e.preventDefault(); resume(); });
+btnSubmit.addEventListener("click", (e) => { e.preventDefault(); submitAndNext(); });
 
 (async function init() {
   try {
     schema = await fetchJSON("/schema");
     images = await fetchJSON("/images-list");
-    buildQuestionUI();
-    renderImage();
+    buildQuestions();
 
-    const last = localStorage.getItem("els.lastAnnotator");
+    // Auto-fill last annotator & auto-resume on refresh
+    const last = localStorage.getItem(LS_LAST_ANNOTATOR);
     if (last) elAnnotator.value = last;
 
-    // Resume automatically on refresh if annotator exists
     if (last) {
-      await resume();
+      await resume(); // THIS is what makes refresh resume
+    } else {
+      // show first image only (no resume until annotator entered)
+      currentIndex = 0;
+      renderImage();
+      setStatus("Enter Annotator ID and click Resume");
     }
-  } catch (e) {
-    setStatus(String(e));
+  } catch (err) {
+    setError(String(err));
   }
 })();
