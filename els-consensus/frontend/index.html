@@ -5,33 +5,33 @@
   <title>ELS Consensus Annotation</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 40px; }
-    img { max-width: 600px; border: 1px solid #ccc; margin-bottom: 20px; }
-    fieldset { margin-bottom: 20px; }
+    img { max-width: 800px; border: 1px solid #ccc; margin: 20px 0; }
+    fieldset { margin-bottom: 20px; padding: 10px; }
     legend { font-weight: bold; }
-    .error { color: red; }
+    #error { color: red; font-weight: bold; }
   </style>
 </head>
 <body>
 
-<h1>ELS Consensus Annotation</h1>
+  <h1>ELS Consensus Annotation</h1>
 
-<label>
-  Annotator ID:
-  <input id="annotator" type="text">
-</label>
+  <label>
+    Annotator ID:
+    <input type="text" id="annotator">
+  </label>
 
-<hr>
+  <hr>
 
-<img id="els-image">
+  <div id="error"></div>
 
-<p id="counter"></p>
+  <img id="els-image" alt="ELS image">
 
-<form id="annotation-form"></form>
+  <div id="counter"></div>
 
-<p class="error" id="error"></p>
+  <form id="annotation-form"></form>
 
-<button onclick="submitAndNext()">Submit & Next</button>
+  <button onclick="submitAndNext()">Submit & Next</button>
 
-<script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
