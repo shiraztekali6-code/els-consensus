@@ -10,7 +10,9 @@ from config.schema import QUESTION_SCHEMA
 
 app = FastAPI(title="ELS Consensus Annotation Server")
 
-# ---------- Static ----------
+# -------------------------
+# Static mounts
+# -------------------------
 app.mount("/images", StaticFiles(directory="images"), name="images")
 app.mount("/ui", StaticFiles(directory="frontend", html=True), name="frontend")
 
@@ -18,7 +20,9 @@ DATA_PATH = "data/annotations.json"
 IMAGES_DIR = "images"
 
 
-# ---------- Utilities ----------
+# -------------------------
+# Utilities
+# -------------------------
 def load_data():
     if not os.path.exists(DATA_PATH):
         return {}
@@ -35,37 +39,46 @@ def save_data(data):
 def validate_answers(answers: dict):
     for question, spec in QUESTION_SCHEMA.items():
         if question not in answers:
-            raise HTTPException(status_code=400, detail=f"Missing answer for '{question}'")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Missing answer for '{question}'"
+            )
 
         value = answers[question]
 
         if spec["type"] == "multi":
-            if not isinstance(value, list):
-                raise HTTPException(status_code=400, detail=f"'{question}' must be a list")
-            # מותר גם רשימה ריקה אם תרצי, אבל אצלך רצית לבחור משהו -> נשאיר לא-ריק
-            if len(value) == 0:
-                raise HTTPException(status_code=400, detail=f"'{question}' must be a non-empty list")
+            if not isinstance(value, list) or len(value) == 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"'{question}' must be a non-empty list"
+                )
             for v in value:
                 if v not in spec["options"]:
-                    raise HTTPException(status_code=400, detail=f"Invalid value '{v}' for '{question}'")
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Invalid value '{v}' for '{question}'"
+                    )
 
         elif spec["type"] == "single":
             if value not in spec["options"]:
-                raise HTTPException(status_code=400, detail=f"Invalid value '{value}' for '{question}'")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid value '{value}' for '{question}'"
+                )
 
-        elif spec["type"] == "boolean":
-            if not isinstance(value, bool):
-                raise HTTPException(status_code=400, detail=f"'{question}' must be true/false")
 
-
-# ---------- Models ----------
+# -------------------------
+# Models
+# -------------------------
 class Annotation(BaseModel):
     image_id: str
     annotator_id: str
-    answers: Dict[str, Union[str, bool, List[str]]]
+    answers: Dict[str, Union[str, List[str]]]
 
 
-# ---------- API ----------
+# -------------------------
+# API endpoints
+# -------------------------
 @app.get("/schema")
 def get_schema():
     return QUESTION_SCHEMA
@@ -75,6 +88,7 @@ def get_schema():
 def get_images_list():
     if not os.path.exists(IMAGES_DIR):
         return []
+
     images = [
         f for f in os.listdir(IMAGES_DIR)
         if f.lower().endswith((".png", ".jpg", ".jpeg", ".tif", ".tiff"))
@@ -84,17 +98,20 @@ def get_images_list():
 
 
 @app.get("/annotated/{annotator_id}")
-def get_annotated_for_annotator(annotator_id: str):
+def get_annotated_images(annotator_id: str):
     """
     Returns list of image_ids already annotated by this annotator.
+    Used for resume after refresh.
     """
     data = load_data()
     done = []
-    for image_id, anns in data.items():
-        for ann in anns:
+
+    for image_id, annotations in data.items():
+        for ann in annotations:
             if ann.get("annotator_id") == annotator_id:
                 done.append(image_id)
                 break
+
     done.sort()
     return done
 
@@ -104,6 +121,7 @@ def submit_annotation(annotation: Annotation):
     validate_answers(annotation.answers)
 
     data = load_data()
+
     data.setdefault(annotation.image_id, []).append({
         "annotator_id": annotation.annotator_id,
         "answers": annotation.answers,
@@ -111,4 +129,13 @@ def submit_annotation(annotation: Annotation):
     })
 
     save_data(data)
+
+    return {"ok": True}
+
+
+# -------------------------
+# Health check (optional but useful)
+# -------------------------
+@app.get("/health")
+def health():
     return {"ok": True}
