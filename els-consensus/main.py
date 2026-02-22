@@ -1,9 +1,10 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Dict, List, Union
-import json
-import os
+from collections import Counter
+import json, os, csv
 
 from config.schema import QUESTION_SCHEMA
 
@@ -11,17 +12,16 @@ app = FastAPI(title="ELS Consensus Annotation Server")
 
 # ---------- Static ----------
 app.mount("/images", StaticFiles(directory="images"), name="images")
-app.mount("/ui", StaticFiles(directory="frontend", html=True), name="frontend")
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 DATA_PATH = "data/annotations.json"
-IMAGES_DIR = "images"
 
 
-# ---------- Utilities ----------
+# ---------- Utils ----------
 def load_data():
     if not os.path.exists(DATA_PATH):
         return {}
-    with open(DATA_PATH, "r") as f:
+    with open(DATA_PATH) as f:
         return json.load(f)
 
 
@@ -31,34 +31,9 @@ def save_data(data):
         json.dump(data, f, indent=2)
 
 
-def validate_answers(answers: dict):
-    for question, spec in QUESTION_SCHEMA.items():
-        if question not in answers:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Missing answer for '{question}'"
-            )
-
-        value = answers[question]
-
-        if spec["type"] == "multi":
-            if not isinstance(value, list) or len(value) == 0:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"'{question}' must be a non-empty list"
-                )
-            for v in value:
-                if v not in spec["options"]:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Invalid value '{v}' for '{question}'"
-                    )
-        else:
-            if value not in spec["options"]:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid value '{value}' for '{question}'"
-                )
+def require_admin(token: str):
+    if token != os.environ.get("ADMIN_TOKEN"):
+        raise HTTPException(status_code=403, detail="Forbidden")
 
 
 # ---------- Models ----------
@@ -68,33 +43,100 @@ class Annotation(BaseModel):
     answers: Dict[str, Union[str, List[str]]]
 
 
+# ---------- Consensus ----------
+def compute_consensus(annotations):
+    consensus = {}
+    flags = {}
+
+    for q, spec in QUESTION_SCHEMA.items():
+        values = []
+        for a in annotations:
+            ans = a["answers"][q]
+            values.extend(ans if isinstance(ans, list) else [ans])
+
+        if not values:
+            consensus[q] = None
+            continue
+
+        counts = Counter(values).most_common()
+        if len(counts) > 1 and counts[0][1] == counts[1][1]:
+            consensus[q] = "ambiguous"
+            flags[q] = "tie"
+        else:
+            consensus[q] = counts[0][0]
+
+    return consensus, flags
+
+
 # ---------- API ----------
+@app.post("/annotate")
+def annotate(a: Annotation):
+    data = load_data()
+    data.setdefault(a.image_id, []).append(a.dict())
+    save_data(data)
+    return {"ok": True}
+
+
 @app.get("/schema")
-def get_schema():
+def schema():
     return QUESTION_SCHEMA
 
 
-@app.get("/images-list")
-def get_images_list():
-    if not os.path.exists(IMAGES_DIR):
-        return []
-    images = [
-        f for f in os.listdir(IMAGES_DIR)
-        if f.lower().endswith((".png", ".jpg", ".jpeg", ".tif", ".tiff"))
-    ]
-    images.sort()
-    return images
+# ---------- ADMIN ----------
+@app.get("/admin/annotations")
+def admin_all(token: str):
+    require_admin(token)
+    return load_data()
 
 
-@app.post("/annotate")
-def submit_annotation(annotation: Annotation):
-    validate_answers(annotation.answers)
-
+@app.get("/admin/consensus/{image_id}")
+def admin_consensus(image_id: str, token: str):
+    require_admin(token)
     data = load_data()
-    data.setdefault(annotation.image_id, []).append({
-        "annotator_id": annotation.annotator_id,
-        "answers": annotation.answers
-    })
+    anns = data.get(image_id, [])
+    consensus, flags = compute_consensus(anns)
+    return {
+        "image_id": image_id,
+        "n_annotators": len(anns),
+        "consensus": consensus,
+        "flags": flags
+    }
 
-    save_data(data)
-    return {"ok": True}
+
+@app.get("/admin/vectors")
+def admin_vectors(token: str):
+    require_admin(token)
+    data = load_data()
+    vectors = []
+
+    for image_id, anns in data.items():
+        consensus, flags = compute_consensus(anns)
+        row = {"image_id": image_id, "n_annotators": len(anns)}
+
+        for q, spec in QUESTION_SCHEMA.items():
+            if spec["type"] == "multi":
+                for opt in spec["options"]:
+                    row[f"{q}:{opt}"] = int(
+                        any(opt in a["answers"][q] for a in anns)
+                    )
+            else:
+                for opt in spec["options"]:
+                    row[f"{q}:{opt}"] = int(consensus.get(q) == opt)
+
+        vectors.append(row)
+
+    return vectors
+
+
+@app.get("/admin/export/csv")
+def export_csv(token: str):
+    require_admin(token)
+    vectors = admin_vectors(token)
+    path = "data/els_vectors.csv"
+
+    with open(path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=vectors[0].keys())
+        writer.writeheader()
+        writer.writerows(vectors)
+
+    return FileResponse(path, filename="els_vectors.csv")
