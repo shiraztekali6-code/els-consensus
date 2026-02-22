@@ -1,36 +1,37 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8" />
   <title>ELS Consensus Annotation</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 40px; }
-    img { max-width: 800px; border: 1px solid #ccc; margin: 20px 0; }
-    fieldset { margin-bottom: 20px; padding: 10px; }
-    legend { font-weight: bold; }
-    #error { color: red; font-weight: bold; }
-  </style>
 </head>
-<body>
+<body style="font-family: Arial; margin: 30px;">
 
-  <h1>ELS Consensus Annotation</h1>
+  <h1 style="font-size:64px; margin-bottom:10px;">ELS Consensus Annotation</h1>
 
-  <label>
-    Annotator ID:
-    <input type="text" id="annotator">
-  </label>
+  <div style="margin: 20px 0;">
+    <label style="font-size:28px;">
+      <b>Annotator ID:</b>
+      <input id="annotatorId" style="font-size:22px; width:320px;" />
+    </label>
 
-  <hr>
+    <button id="btnResume" style="font-size:18px; margin-left:10px;">Resume</button>
+  </div>
 
-  <div id="error"></div>
+  <hr/>
 
-  <img id="els-image" alt="ELS image">
+  <div style="margin: 15px 0;">
+    <img id="elsImage" alt="ELS image" style="max-width: 100%; border: 1px solid #ddd;" />
+  </div>
 
-  <div id="counter"></div>
+  <div id="imgCounter" style="font-size:22px; margin: 10px 0;"></div>
 
-  <form id="annotation-form"></form>
+  <div id="questions"></div>
 
-  <button onclick="submitAndNext()">Submit & Next</button>
+  <button id="btnSubmit" style="font-size:22px; padding: 10px 18px; margin-top: 10px;">
+    Submit & Next
+  </button>
+
+  <div id="status" style="margin-top: 12px; font-size: 16px; color: #333;"></div>
 
   <script src="app.js"></script>
 </body>
