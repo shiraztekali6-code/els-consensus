@@ -1,308 +1,226 @@
-// ---------- Helpers ----------
-const $ = (id) => document.getElementById(id);
+// frontend/app.js
 
-const LS_KEY_ANNOTATOR = "els.annotator_id";
-const lsKeyIndex = (annotatorId) => `els.index.${annotatorId}`;
-const lsKeyImage = (annotatorId) => `els.image.${annotatorId}`;
+let images = [];
+let schema = null;
 
-async function fetchJSON(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`${url} -> ${r.status}`);
-  return await r.json();
-}
+let idx = 0; // current image index
 
+const elAnnotator = document.getElementById("annotatorId");
+const elImg = document.getElementById("elsImage");
+const elQuestions = document.getElementById("questions");
+const elCounter = document.getElementById("imgCounter");
+const elStatus = document.getElementById("status");
+const btnSubmit = document.getElementById("btnSubmit");
+const btnResume = document.getElementById("btnResume");
+
+// ---- helpers ----
 function setStatus(msg) {
-  $("status").textContent = msg || "";
+  if (elStatus) elStatus.textContent = msg || "";
 }
 
 function getAnnotatorId() {
-  return ($("annotatorId").value || "").trim();
+  return (elAnnotator?.value || "").trim();
 }
 
-function persistAnnotatorId(id) {
-  localStorage.setItem(LS_KEY_ANNOTATOR, id);
+function imageUrl(filename) {
+  // IMPORTANT: absolute path (works even when page is under /ui/)
+  // Also add cache-buster so browser won't show old/broken cached result.
+  return `/images/${encodeURIComponent(filename)}?v=${Date.now()}`;
 }
 
-function loadPersistedAnnotatorId() {
-  return localStorage.getItem(LS_KEY_ANNOTATOR) || "";
+function getProgressKey(annotatorId) {
+  return `els_progress:${annotatorId}`;
 }
 
-function persistPosition(annotatorId, index, imageId) {
-  localStorage.setItem(lsKeyIndex(annotatorId), String(index));
-  localStorage.setItem(lsKeyImage(annotatorId), imageId);
+function saveProgress(annotatorId) {
+  try {
+    localStorage.setItem(getProgressKey(annotatorId), String(idx));
+  } catch (e) {}
 }
 
-function loadPersistedPosition(annotatorId) {
-  const idx = parseInt(localStorage.getItem(lsKeyIndex(annotatorId) || "") || "0", 10);
-  const img = localStorage.getItem(lsKeyImage(annotatorId) || "") || "";
-  return { idx: isNaN(idx) ? 0 : idx, img };
+function loadProgress(annotatorId) {
+  try {
+    const v = localStorage.getItem(getProgressKey(annotatorId));
+    if (v === null) return 0;
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  } catch (e) {
+    return 0;
+  }
 }
 
-function clearForm(container) {
-  container.innerHTML = "";
+function clearQuestionUI() {
+  if (elQuestions) elQuestions.innerHTML = "";
 }
 
-function buildQuestionUI(schema, container) {
-  clearForm(container);
+function buildQuestionUI() {
+  clearQuestionUI();
+  if (!schema || !elQuestions) return;
 
-  // Legend
-  const legend = document.createElement("div");
-  legend.innerHTML = `
-    <div style="border:1px solid #ddd;padding:10px;margin:10px 0;">
-      <b>Color Legend</b><br/>
-      Yellow = B cells<br/>
-      Red = T cells<br/>
-      Green = Proliferating cells (Ki67+)
-    </div>
-  `;
-  container.appendChild(legend);
-
-  // Questions
-  Object.entries(schema).forEach(([qKey, spec]) => {
+  // schema is QUESTION_SCHEMA dict
+  for (const [qKey, spec] of Object.entries(schema)) {
     const box = document.createElement("div");
-    box.style.border = "1px solid #ccc";
-    box.style.padding = "10px";
-    box.style.margin = "10px 0";
+    box.style.border = "1px solid #ddd";
+    box.style.padding = "12px";
+    box.style.margin = "12px 0";
+    box.style.maxWidth = "720px";
 
     const title = document.createElement("div");
-    title.innerHTML = `<b>${qKey}</b>`;
+    title.style.fontWeight = "700";
+    title.style.fontSize = "20px";
+    title.textContent = qKey;
     box.appendChild(title);
 
     if (spec.description) {
       const desc = document.createElement("div");
-      desc.style.margin = "6px 0 10px 0";
+      desc.style.margin = "8px 0 10px";
       desc.textContent = spec.description;
       box.appendChild(desc);
     }
 
-    if (spec.type === "multi") {
-      spec.options.forEach((opt, i) => {
-        const id = `${qKey}__${i}`;
-        const row = document.createElement("div");
-        row.innerHTML = `
-          <label>
-            <input type="checkbox" id="${id}" data-q="${qKey}" data-type="multi" value="${opt}">
-            ${opt}
-          </label>
-        `;
-        box.appendChild(row);
-      });
-    } else if (spec.type === "single") {
-      spec.options.forEach((opt, i) => {
-        const id = `${qKey}__${i}`;
-        const row = document.createElement("div");
-        row.innerHTML = `
-          <label>
-            <input type="radio" name="${qKey}" id="${id}" data-q="${qKey}" data-type="single" value="${opt}">
-            ${opt}
-          </label>
-        `;
-        box.appendChild(row);
-      });
-    } else if (spec.type === "boolean") {
-      const row = document.createElement("div");
-      row.innerHTML = `
-        <label><input type="radio" name="${qKey}" data-q="${qKey}" data-type="boolean" value="true"> True</label>
-        &nbsp;&nbsp;
-        <label><input type="radio" name="${qKey}" data-q="${qKey}" data-type="boolean" value="false"> False</label>
-      `;
-      box.appendChild(row);
-    }
+    const type = spec.type; // "multi" / "single"
+    const options = spec.options || [];
 
-    container.appendChild(box);
-  });
+    options.forEach((opt, i) => {
+      const row = document.createElement("label");
+      row.style.display = "block";
+      row.style.margin = "6px 0";
+      row.style.cursor = "pointer";
+
+      const input = document.createElement("input");
+      input.type = (type === "multi") ? "checkbox" : "radio";
+      input.name = qKey;
+      input.value = opt;
+      input.dataset.qkey = qKey;
+      input.style.marginRight = "10px";
+
+      row.appendChild(input);
+      row.appendChild(document.createTextNode(opt));
+      box.appendChild(row);
+    });
+
+    elQuestions.appendChild(box);
+  }
 }
 
-function collectAnswers(schema) {
+function collectAnswers() {
+  if (!schema) return null;
+
   const answers = {};
+
   for (const [qKey, spec] of Object.entries(schema)) {
-    if (spec.type === "multi") {
-      const checked = Array.from(document.querySelectorAll(`input[data-q="${qKey}"][data-type="multi"]:checked`));
-      answers[qKey] = checked.map(x => x.value);
-    } else if (spec.type === "single") {
-      const sel = document.querySelector(`input[name="${qKey}"][data-type="single"]:checked`);
-      answers[qKey] = sel ? sel.value : null;
-    } else if (spec.type === "boolean") {
-      const sel = document.querySelector(`input[name="${qKey}"][data-type="boolean"]:checked`);
-      answers[qKey] = sel ? (sel.value === "true") : null;
+    const type = spec.type;
+
+    if (type === "multi") {
+      const checked = Array.from(document.querySelectorAll(`input[data-qkey="${qKey}"]:checked`))
+        .map(x => x.value);
+      // allow empty? depends on your validate_answers. if you require non-empty, keep as-is.
+      answers[qKey] = checked;
+    } else {
+      const chosen = document.querySelector(`input[data-qkey="${qKey}"]:checked`);
+      answers[qKey] = chosen ? chosen.value : "";
     }
   }
+
   return answers;
 }
 
-function validateClientSide(schema, answers) {
-  for (const [qKey, spec] of Object.entries(schema)) {
-    const v = answers[qKey];
-
-    if (spec.type === "multi") {
-      if (!Array.isArray(v) || v.length === 0) return `Please answer: ${qKey}`;
-    } else {
-      if (v === null || v === undefined) return `Please answer: ${qKey}`;
-    }
+function renderImage() {
+  if (!images.length) {
+    setStatus("No images found.");
+    if (elCounter) elCounter.textContent = "";
+    if (elImg) elImg.removeAttribute("src");
+    return;
   }
-  return null;
-}
 
+  const filename = images[idx];
 
-// ---------- App State ----------
-let SCHEMA = null;
-let IMAGES = [];
-let DONE_SET = new Set();
-let currentIndex = 0;
-let currentImageId = "";
+  if (elCounter) elCounter.textContent = `Image ${idx + 1} / ${images.length}`;
+  setStatus("");
 
-
-function setImage(imageId) {
-  currentImageId = imageId;
-  $("elsImage").src = `/images/${encodeURIComponent(imageId)}`;
-  $("imgCounter").textContent = `Image ${currentIndex + 1} / ${IMAGES.length}`;
-}
-
-function findNextUnannotated(startIdx = 0) {
-  for (let i = startIdx; i < IMAGES.length; i++) {
-    if (!DONE_SET.has(IMAGES[i])) return i;
-  }
-  return -1;
-}
-
-async function loadAnnotatorProgress(annotatorId) {
-  const done = await fetchJSON(`/annotated/${encodeURIComponent(annotatorId)}`);
-  DONE_SET = new Set(done);
-}
-
-async function boot() {
-  try {
-    SCHEMA = await fetchJSON("/schema");
-    IMAGES = await fetchJSON("/images-list");
-
-    buildQuestionUI(SCHEMA, $("questions"));
-
-    // restore annotator id
-    const savedId = loadPersistedAnnotatorId();
-    if (savedId) $("annotatorId").value = savedId;
-
-    setStatus("Ready. Enter Annotator ID.");
-  } catch (e) {
-    console.error(e);
-    setStatus("Failed to load schema/images. Check server endpoints.");
+  // Update image
+  if (elImg) {
+    elImg.alt = "ELS image";
+    elImg.style.maxWidth = "720px";
+    elImg.style.width = "100%";
+    elImg.style.height = "auto";
+    elImg.src = imageUrl(filename);
   }
 }
 
-async function startOrResume() {
+async function loadSchema() {
+  const r = await fetch("/schema");
+  if (!r.ok) throw new Error("Failed to load schema");
+  return await r.json();
+}
+
+async function loadImagesList() {
+  const r = await fetch("/images-list");
+  if (!r.ok) throw new Error("Failed to load images list");
+  return await r.json();
+}
+
+async function submitCurrent() {
   const annotatorId = getAnnotatorId();
   if (!annotatorId) {
     alert("Please enter Annotator ID");
     return;
   }
 
-  persistAnnotatorId(annotatorId);
-  await loadAnnotatorProgress(annotatorId);
-
-  // try restore last position
-  const { idx: savedIdx, img: savedImg } = loadPersistedPosition(annotatorId);
-
-  // if saved image exists and not done -> return to it
-  if (savedImg && IMAGES.includes(savedImg) && !DONE_SET.has(savedImg)) {
-    currentIndex = IMAGES.indexOf(savedImg);
-    setImage(savedImg);
-    setStatus(`Resumed at ${savedImg}`);
-    return;
-  }
-
-  // else, start from saved index but find first unannotated from there
-  const startIdx = Math.min(Math.max(savedIdx, 0), IMAGES.length - 1);
-  const nextIdx = findNextUnannotated(startIdx);
-
-  if (nextIdx === -1) {
-    $("elsImage").src = "";
-    $("imgCounter").textContent = `All images annotated 🎉`;
-    setStatus("All done 🎉");
-    return;
-  }
-
-  currentIndex = nextIdx;
-  setImage(IMAGES[currentIndex]);
-  persistPosition(annotatorId, currentIndex, currentImageId);
-  setStatus(`Loaded ${currentImageId}`);
-}
-
-async function submitAndNext() {
-  const annotatorId = getAnnotatorId();
-  if (!annotatorId) {
-    alert("Please enter Annotator ID");
-    return;
-  }
-
-  // Ensure we resumed/loaded progress at least once
-  if (!SCHEMA || IMAGES.length === 0) {
-    alert("Not ready yet. Refresh page.");
-    return;
-  }
-  if (!currentImageId) {
-    await startOrResume();
-    if (!currentImageId) return;
-  }
-
-  const answers = collectAnswers(SCHEMA);
-  const err = validateClientSide(SCHEMA, answers);
-  if (err) {
-    alert(err);
-    return;
-  }
+  const answers = collectAnswers();
 
   const payload = {
-    image_id: currentImageId,
+    image_id: images[idx],
     annotator_id: annotatorId,
-    answers: answers
+    answers
   };
 
-  setStatus("Saving...");
   const r = await fetch("/annotate", {
     method: "POST",
-    headers: {"Content-Type": "application/json"},
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
 
   if (!r.ok) {
     const txt = await r.text();
-    console.error(txt);
-    alert("Save failed. Check server response.");
-    setStatus("Save failed.");
+    alert("Submit failed: " + txt);
     return;
   }
 
-  DONE_SET.add(currentImageId);
+  // advance
+  if (idx < images.length - 1) idx += 1;
 
-  // move to next unannotated
-  const nextIdx = findNextUnannotated(currentIndex + 1);
-  if (nextIdx === -1) {
-    $("elsImage").src = "";
-    $("imgCounter").textContent = `All images annotated 🎉`;
-    persistPosition(annotatorId, IMAGES.length - 1, "");
-    setStatus("All done 🎉");
-    return;
-  }
-
-  currentIndex = nextIdx;
-  setImage(IMAGES[currentIndex]);
-
-  // persist position for refresh-resume
-  persistPosition(annotatorId, currentIndex, currentImageId);
-
-  setStatus("Saved ✔");
+  saveProgress(annotatorId);
+  // reset choices
+  document.querySelectorAll("#questions input").forEach(x => (x.checked = false));
+  renderImage();
 }
 
-
-// ---------- Wire up ----------
-window.addEventListener("load", async () => {
-  await boot();
-
-  $("annotatorId").addEventListener("change", () => {
-    // only persist the ID; resume happens on button click
-    const id = getAnnotatorId();
-    if (id) persistAnnotatorId(id);
-  });
-
-  $("btnResume").addEventListener("click", startOrResume);
-  $("btnSubmit").addEventListener("click", submitAndNext);
+// ---- wire ----
+btnSubmit?.addEventListener("click", (e) => {
+  e.preventDefault();
+  submitCurrent();
 });
+
+btnResume?.addEventListener("click", (e) => {
+  e.preventDefault();
+  const annotatorId = getAnnotatorId();
+  if (!annotatorId) {
+    alert("Please enter Annotator ID");
+    return;
+  }
+  idx = Math.min(loadProgress(annotatorId), Math.max(images.length - 1, 0));
+  renderImage();
+});
+
+// ---- init ----
+(async function init() {
+  try {
+    schema = await loadSchema();
+    images = await loadImagesList();
+    buildQuestionUI();
+    renderImage();
+  } catch (err) {
+    setStatus(String(err));
+  }
+})();
