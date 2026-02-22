@@ -1,152 +1,255 @@
-let images = [];
-let schema = {};
-let index = 0;
+let SCHEMA = null;
+let IMAGES = [];
+let currentIndex = 0;
+let currentImage = null;
 
-// ---------- init ----------
-async function init() {
-  const annotator = localStorage.getItem("annotator_id");
-  if (annotator) {
-    document.getElementById("annotator").value = annotator;
-    await loadForAnnotator(annotator);
-  } else {
-    schema = await fetch("/schema").then(r => r.json());
+function $(id) {
+  return document.getElementById(id);
+}
+
+function showError(msg) {
+  const el = $("error");
+  if (!el) return;
+  el.textContent = msg || "";
+}
+
+function annotatorId() {
+  return ($("annotator")?.value || "").trim();
+}
+
+function keyForAnnotator(aid) {
+  return `els_progress__${aid}`;
+}
+
+function loadProgress(aid) {
+  try {
+    const raw = localStorage.getItem(keyForAnnotator(aid));
+    if (!raw) return { done: {} };
+    const obj = JSON.parse(raw);
+    if (!obj.done) obj.done = {};
+    return obj;
+  } catch {
+    return { done: {} };
   }
 }
 
-// ---------- load images for annotator ----------
-async function loadForAnnotator(annotator) {
-  localStorage.setItem("annotator_id", annotator);
-
-  schema = await fetch("/schema").then(r => r.json());
-  images = await fetch(`/images-list/${annotator}`).then(r => r.json());
-
-  if (images.length === 0) {
-    document.body.innerHTML = "<h2>All images annotated 🎉</h2>";
-    return;
-  }
-
-  index = 0;
-  render();
+function saveProgress(aid, progress) {
+  localStorage.setItem(keyForAnnotator(aid), JSON.stringify(progress));
 }
 
-// ---------- render ----------
-function render() {
-  document.getElementById("error").innerText = "";
-
-  document.getElementById("els-image").src = "/images/" + images[index];
-  document.getElementById("counter").innerText =
-    `Image ${index + 1} / ${images.length}`;
-
-  buildForm();
+async function fetchJSON(path) {
+  const res = await fetch(path, { cache: "no-store" });
+  if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
+  return res.json();
 }
 
-// ---------- build form ----------
 function buildForm() {
-  const form = document.getElementById("annotation-form");
+  const form = $("annotation-form");
   form.innerHTML = "";
 
-  for (const [qKey, qSpec] of Object.entries(schema)) {
+  for (const [q, spec] of Object.entries(SCHEMA)) {
     const fs = document.createElement("fieldset");
     const legend = document.createElement("legend");
-    legend.innerText = qKey;
+    legend.textContent = q;
     fs.appendChild(legend);
 
-    if (qSpec.description) {
-      const p = document.createElement("p");
-      p.innerText = qSpec.description;
+    if (spec.description) {
+      const p = document.createElement("div");
+      p.textContent = spec.description;
+      p.style.marginBottom = "8px";
       fs.appendChild(p);
     }
 
-    qSpec.options.forEach(opt => {
+    for (const opt of spec.options) {
       const label = document.createElement("label");
-      const input = document.createElement("input");
+      label.style.display = "block";
+      label.style.margin = "4px 0";
 
-      input.type = qSpec.type === "multi" ? "checkbox" : "radio";
-      input.name = qKey;
+      const input = document.createElement("input");
+      input.type = spec.type === "multi" ? "checkbox" : "radio";
+      input.name = q;
       input.value = opt;
 
       label.appendChild(input);
       label.appendChild(document.createTextNode(" " + opt));
-
       fs.appendChild(label);
-      fs.appendChild(document.createElement("br"));
-    });
+    }
 
     form.appendChild(fs);
   }
 }
 
-// ---------- collect answers ----------
-function collectAnswers() {
+function readAnswersFromForm() {
   const answers = {};
-
-  for (const [qKey, qSpec] of Object.entries(schema)) {
-    const inputs = document.querySelectorAll(`[name="${qKey}"]`);
-    const selected = [];
-
-    inputs.forEach(i => {
-      if (i.checked) selected.push(i.value);
-    });
-
-    if (qSpec.type === "multi") {
-      if (selected.length === 0) return null;
-      answers[qKey] = selected;
+  for (const [q, spec] of Object.entries(SCHEMA)) {
+    if (spec.type === "multi") {
+      const checked = Array.from(document.querySelectorAll(`input[name="${q}"]:checked`))
+        .map(x => x.value);
+      answers[q] = checked;
     } else {
-      if (selected.length !== 1) return null;
-      answers[qKey] = selected[0];
+      const picked = document.querySelector(`input[name="${q}"]:checked`);
+      answers[q] = picked ? picked.value : null;
     }
   }
-
   return answers;
 }
 
-// ---------- submit ----------
-async function submitAndNext() {
-  const annotator = document.getElementById("annotator").value.trim();
-  if (!annotator) {
-    document.getElementById("error").innerText =
-      "Annotator ID is required.";
-    return;
+function validateAnswers(answers) {
+  for (const [q, spec] of Object.entries(SCHEMA)) {
+    const v = answers[q];
+
+    if (spec.type === "multi") {
+      if (!Array.isArray(v) || v.length === 0) {
+        throw new Error(`Please select at least one option for: ${q}`);
+      }
+    } else {
+      if (!v) {
+        throw new Error(`Please select one option for: ${q}`);
+      }
+    }
   }
-
-  // אם זה annotator חדש — טוענים לו רשימת תמונות
-  if (images.length === 0) {
-    await loadForAnnotator(annotator);
-    return;
-  }
-
-  const answers = collectAnswers();
-  if (answers === null) {
-    document.getElementById("error").innerText =
-      "Please answer ALL questions before continuing.";
-    return;
-  }
-
-  const payload = {
-    image_id: images[index],
-    annotator_id: annotator,
-    answers: answers
-  };
-
-  const res = await fetch("/annotate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-
-  if (!res.ok) {
-    document.getElementById("error").innerText =
-      "Failed to save annotation. Please try again.";
-    return;
-  }
-
-  index++;
-  if (index >= images.length) {
-    document.body.innerHTML = "<h2>All images annotated 🎉</h2>";
-    return;
-  }
-
-  render();
 }
 
-init();
+function setCounterText() {
+  const el = $("counter");
+  if (!el) return;
+
+  if (!currentImage) {
+    el.textContent = "";
+    return;
+  }
+  el.textContent = `Image ${currentIndex + 1} / ${IMAGES.length} (${currentImage})`;
+}
+
+function showImage(name) {
+  currentImage = name;
+  const img = $("els-image");
+
+  // חשוב: נתיב מוחלט עם /
+  const url = `/images/${encodeURIComponent(name)}`;
+  img.src = url;
+
+  img.onload = () => {
+    showError("");
+  };
+  img.onerror = () => {
+    showError(`Image failed to load: ${url} (check that /images/${name} opens)`);
+  };
+
+  setCounterText();
+}
+
+function pickNextUnseenImage(aid) {
+  const progress = loadProgress(aid);
+  const done = progress.done || {};
+
+  for (let i = 0; i < IMAGES.length; i++) {
+    const idx = (currentIndex + i) % IMAGES.length;
+    const imgName = IMAGES[idx];
+    if (!done[imgName]) {
+      currentIndex = idx;
+      return imgName;
+    }
+  }
+  return null;
+}
+
+async function submitAndNext() {
+  try {
+    showError("");
+
+    const aid = annotatorId();
+    if (!aid) {
+      showError("Please enter Annotator ID");
+      return;
+    }
+
+    const answers = readAnswersFromForm();
+    validateAnswers(answers);
+
+    if (!currentImage) {
+      showError("No image loaded");
+      return;
+    }
+
+    const payload = {
+      image_id: currentImage,
+      annotator_id: aid,
+      answers
+    };
+
+    const res = await fetch("/annotate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Submit failed (${res.status}): ${text}`);
+    }
+
+    // mark as done locally (resume after refresh)
+    const progress = loadProgress(aid);
+    progress.done[currentImage] = true;
+    saveProgress(aid, progress);
+
+    // next
+    const next = pickNextUnseenImage(aid);
+    if (!next) {
+      $("els-image").removeAttribute("src");
+      $("annotation-form").innerHTML = "";
+      $("counter").textContent = "All images annotated 🎉";
+      return;
+    }
+
+    // reset selections
+    Array.from(document.querySelectorAll(`#annotation-form input`)).forEach(i => {
+      i.checked = false;
+    });
+
+    showImage(next);
+  } catch (e) {
+    showError(e.message || String(e));
+  }
+}
+
+async function init() {
+  try {
+    showError("");
+
+    // ודאי שהנתיבים נכונים:
+    // /schema, /images-list
+    SCHEMA = await fetchJSON("/schema");
+    IMAGES = await fetchJSON("/images-list");
+
+    if (!IMAGES || IMAGES.length === 0) {
+      showError("No images found. /images-list returned empty.");
+      return;
+    }
+
+    buildForm();
+
+    // אם כבר יש Annotator ID שנשמר בדפדפן (אופציונלי)
+    // לא חובה, אבל נוח:
+    const savedA = localStorage.getItem("els_last_annotator");
+    if (savedA && $("annotator")) $("annotator").value = savedA;
+
+    // כשמשנים annotator – ממשיכים מאיפה שהפסיק
+    $("annotator")?.addEventListener("change", () => {
+      const aid = annotatorId();
+      if (aid) localStorage.setItem("els_last_annotator", aid);
+      const next = pickNextUnseenImage(aid);
+      if (next) showImage(next);
+    });
+
+    // ברירת מחדל: קחי את הראשון
+    currentIndex = 0;
+    showImage(IMAGES[0]);
+  } catch (e) {
+    showError(e.message || String(e));
+  }
+}
+
+window.submitAndNext = submitAndNext;
+window.addEventListener("load", init);
