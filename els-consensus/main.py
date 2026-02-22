@@ -1,34 +1,35 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Dict, List, Union
 import json
 import os
+from datetime import datetime
 
 from config.schema import QUESTION_SCHEMA
 
 app = FastAPI(title="ELS Consensus Annotation Server")
 
+# ---------- Static ----------
+app.mount("/images", StaticFiles(directory="images"), name="images")
+app.mount("/ui", StaticFiles(directory="frontend", html=True), name="frontend")
+
 DATA_PATH = "data/annotations.json"
 IMAGES_DIR = "images"
-FRONTEND_DIR = "frontend"
 
 
-# -----------------------
-# Utilities
-# -----------------------
+# ---------- Utilities ----------
 def load_data():
     if not os.path.exists(DATA_PATH):
         return {}
-    with open(DATA_PATH, "r", encoding="utf-8") as f:
+    with open(DATA_PATH, "r") as f:
         return json.load(f)
 
 
 def save_data(data):
     os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
-    with open(DATA_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    with open(DATA_PATH, "w") as f:
+        json.dump(data, f, indent=2)
 
 
 def validate_answers(answers: dict):
@@ -41,7 +42,9 @@ def validate_answers(answers: dict):
         if spec["type"] == "multi":
             if not isinstance(value, list):
                 raise HTTPException(status_code=400, detail=f"'{question}' must be a list")
-            # מאפשר גם רשימה ריקה (לפעמים באמת אין משהו לבחור)
+            # מותר גם רשימה ריקה אם תרצי, אבל אצלך רצית לבחור משהו -> נשאיר לא-ריק
+            if len(value) == 0:
+                raise HTTPException(status_code=400, detail=f"'{question}' must be a non-empty list")
             for v in value:
                 if v not in spec["options"]:
                     raise HTTPException(status_code=400, detail=f"Invalid value '{v}' for '{question}'")
@@ -50,33 +53,19 @@ def validate_answers(answers: dict):
             if value not in spec["options"]:
                 raise HTTPException(status_code=400, detail=f"Invalid value '{value}' for '{question}'")
 
-        else:
-            raise HTTPException(status_code=400, detail=f"Unknown schema type for '{question}'")
+        elif spec["type"] == "boolean":
+            if not isinstance(value, bool):
+                raise HTTPException(status_code=400, detail=f"'{question}' must be true/false")
 
 
-# -----------------------
-# Models
-# -----------------------
+# ---------- Models ----------
 class Annotation(BaseModel):
     image_id: str
     annotator_id: str
-    answers: Dict[str, Union[str, List[str]]]
+    answers: Dict[str, Union[str, bool, List[str]]]
 
 
-# -----------------------
-# API routes (שמים לפני mount כדי שלא יידרסו)
-# -----------------------
-@app.get("/health")
-def health():
-    return {"ok": True}
-
-
-@app.get("/")
-def root():
-    # להפוך את / לכניסה ל-UI
-    return RedirectResponse(url="/ui/")
-
-
+# ---------- API ----------
 @app.get("/schema")
 def get_schema():
     return QUESTION_SCHEMA
@@ -94,6 +83,22 @@ def get_images_list():
     return images
 
 
+@app.get("/annotated/{annotator_id}")
+def get_annotated_for_annotator(annotator_id: str):
+    """
+    Returns list of image_ids already annotated by this annotator.
+    """
+    data = load_data()
+    done = []
+    for image_id, anns in data.items():
+        for ann in anns:
+            if ann.get("annotator_id") == annotator_id:
+                done.append(image_id)
+                break
+    done.sort()
+    return done
+
+
 @app.post("/annotate")
 def submit_annotation(annotation: Annotation):
     validate_answers(annotation.answers)
@@ -101,44 +106,9 @@ def submit_annotation(annotation: Annotation):
     data = load_data()
     data.setdefault(annotation.image_id, []).append({
         "annotator_id": annotation.annotator_id,
-        "answers": annotation.answers
+        "answers": annotation.answers,
+        "timestamp": datetime.utcnow().isoformat() + "Z"
     })
 
     save_data(data)
     return {"ok": True}
-
-
-# -----------------------
-# Static mounts (שמים בסוף!)
-# -----------------------
-if os.path.isdir(IMAGES_DIR):
-    app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
-
-if os.path.isdir(FRONTEND_DIR):
-    app.mount("/ui", StaticFiles(directory=FRONTEND_DIR, html=True), name="ui")
-
-@app.get("/images-list/{annotator_id}")
-def get_images_for_annotator(annotator_id: str):
-    # כל התמונות
-    if not os.path.exists(IMAGES_DIR):
-        return []
-
-    all_images = sorted(
-        f for f in os.listdir(IMAGES_DIR)
-        if f.lower().endswith((".png", ".jpg", ".jpeg", ".tif", ".tiff"))
-    )
-
-    data = load_data()
-
-    # תמונות שכבר סומנו ע"י annotator
-    done = set()
-    for image_id, annotations in data.items():
-        for ann in annotations:
-            if ann["annotator_id"] == annotator_id:
-                done.add(image_id)
-
-    # מחזירים רק מה שנשאר
-    remaining = [img for img in all_images if img not in done]
-    return remaining
-
-
