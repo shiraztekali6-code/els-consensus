@@ -3,35 +3,42 @@
 <head>
   <meta charset="utf-8" />
   <title>ELS Consensus Annotation</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 30px; }
+    img { max-width: 900px; width: 100%; border: 1px solid #ddd; }
+    fieldset { border: 1px solid #ddd; padding: 10px; margin: 12px 0; }
+    legend { font-weight: bold; }
+    #status { margin-top: 12px; }
+    #error { color: #b00020; font-weight: bold; margin-top: 10px; }
+    button { font-size: 18px; padding: 10px 14px; }
+    input[type="text"] { font-size: 18px; width: 260px; }
+  </style>
 </head>
-<body style="font-family: Arial; margin: 30px;">
+<body>
 
-  <h1 style="font-size:64px; margin-bottom:10px;">ELS Consensus Annotation</h1>
+  <h1 style="font-size:44px;margin:0 0 10px 0;">ELS Consensus Annotation</h1>
 
-  <div style="margin: 20px 0;">
-    <label style="font-size:28px;">
+  <div style="margin: 14px 0;">
+    <label>
       <b>Annotator ID:</b>
-      <input id="annotatorId" style="font-size:22px; width:320px;" />
+      <input id="annotatorId" type="text" placeholder="e.g., student1" />
     </label>
-
-    <button id="btnResume" style="font-size:18px; margin-left:10px;">Resume</button>
+    <button id="btnResume" style="margin-left:10px;">Resume</button>
   </div>
 
-  <hr/>
+  <div id="error"></div>
 
-  <div style="margin: 15px 0;">
-    <img id="elsImage" alt="ELS image" style="max-width: 100%; border: 1px solid #ddd;" />
+  <div style="margin: 14px 0;">
+    <img id="elsImage" alt="ELS image" />
   </div>
 
-  <div id="imgCounter" style="font-size:22px; margin: 10px 0;"></div>
+  <div id="imgCounter" style="font-size:18px;margin:8px 0;"></div>
 
   <div id="questions"></div>
 
-  <button id="btnSubmit" style="font-size:22px; padding: 10px 18px; margin-top: 10px;">
-    Submit & Next
-  </button>
+  <button id="btnSubmit">Submit & Next</button>
 
-  <div id="status" style="margin-top: 12px; font-size: 16px; color: #333;"></div>
+  <div id="status"></div>
 
   <script src="app.js"></script>
 </body>
