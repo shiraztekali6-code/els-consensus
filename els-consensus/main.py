@@ -9,27 +9,37 @@ from config.schema import QUESTION_SCHEMA
 
 app = FastAPI(title="ELS Consensus Annotation Server")
 
-# ---------- Static ----------
+# -----------------------
+# Static files
+# -----------------------
+
+# images will be available at /images/els1.png
 app.mount("/images", StaticFiles(directory="images"), name="images")
-app.mount("/ui", StaticFiles(directory="frontend", html=True), name="frontend")
+
+# UI (index.html, app.js) will be served at /
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+
+# -----------------------
+# Paths
+# -----------------------
 
 DATA_PATH = "data/annotations.json"
 IMAGES_DIR = "images"
 
+# -----------------------
+# Utilities
+# -----------------------
 
-# ---------- Utilities ----------
 def load_data():
     if not os.path.exists(DATA_PATH):
         return {}
     with open(DATA_PATH, "r") as f:
         return json.load(f)
 
-
 def save_data(data):
     os.makedirs("data", exist_ok=True)
     with open(DATA_PATH, "w") as f:
         json.dump(data, f, indent=2)
-
 
 def validate_answers(answers: dict):
     for question, spec in QUESTION_SCHEMA.items():
@@ -60,31 +70,34 @@ def validate_answers(answers: dict):
                     detail=f"Invalid value '{value}' for '{question}'"
                 )
 
+# -----------------------
+# Models
+# -----------------------
 
-# ---------- Models ----------
 class Annotation(BaseModel):
     image_id: str
     annotator_id: str
     answers: Dict[str, Union[str, List[str]]]
 
+# -----------------------
+# API
+# -----------------------
 
-# ---------- API ----------
 @app.get("/schema")
 def get_schema():
     return QUESTION_SCHEMA
-
 
 @app.get("/images-list")
 def get_images_list():
     if not os.path.exists(IMAGES_DIR):
         return []
+
     images = [
         f for f in os.listdir(IMAGES_DIR)
         if f.lower().endswith((".png", ".jpg", ".jpeg", ".tif", ".tiff"))
     ]
     images.sort()
     return images
-
 
 @app.post("/annotate")
 def submit_annotation(annotation: Annotation):
