@@ -2,7 +2,7 @@ let schema = null;
 let images = [];
 let idx = 0;
 
-const ADMIN_PASSWORD = "PUT_YOUR_SECRET_HERE";
+const ADMIN_PASSWORD = "els-admin-shiraz";  // לשנות אם צריך
 
 const $ = id => document.getElementById(id);
 
@@ -15,18 +15,21 @@ function imageUrl(name) {
   return `/images/${encodeURIComponent(name)}?v=${Date.now()}`;
 }
 
-function showAdminScreen() {
-  $("mainContent").innerHTML = `
-    <div class="admin-panel">
-      <h2>Admin Panel</h2>
-      <p>CSV Column Keys:</p>
-      ${Object.keys(schema).map(k => `
-        <div class="admin-key">${k}</div>
-      `).join("")}
-      <br><br>
-      <button onclick="downloadCSV()">Download Annotations CSV</button>
-    </div>
-  `;
+function ensureAdminButton() {
+  if (!$("downloadBtn")) {
+    const btn = document.createElement("button");
+    btn.id = "downloadBtn";
+    btn.innerText = "Download Annotations (CSV)";
+    btn.style.marginLeft = "10px";
+    btn.onclick = downloadCSV;
+
+    $("btnResume").after(btn);
+  }
+}
+
+function removeAdminButton() {
+  const btn = $("downloadBtn");
+  if (btn) btn.remove();
 }
 
 function showAnnotatorScreen() {
@@ -50,24 +53,17 @@ function showAnnotatorScreen() {
     </div>
   `;
 
-  buildQuestions(false);
+  buildQuestions();
   $("btnSubmit").onclick = submit;
 }
 
-function buildQuestions(isAdmin) {
+function buildQuestions() {
   $("questions").innerHTML = "";
 
   for (const [q, spec] of Object.entries(schema)) {
 
     const wrapper = document.createElement("div");
     wrapper.className = "question-card";
-
-    if (isAdmin) {
-      const key = document.createElement("div");
-      key.className = "admin-key";
-      key.innerText = q;
-      wrapper.appendChild(key);
-    }
 
     const title = document.createElement("div");
     title.className = "question-title";
@@ -101,8 +97,9 @@ async function resume() {
   if (!annotator) return;
 
   if (annotator === ADMIN_PASSWORD) {
-    showAdminScreen();
-    return;
+    ensureAdminButton();
+  } else {
+    removeAdminButton();
   }
 
   showAnnotatorScreen();
