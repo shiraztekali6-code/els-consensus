@@ -1,15 +1,13 @@
 let schema = null;
 let images = [];
-let doneSet = new Set();
 let idx = 0;
 
-const ADMIN_PASSWORD = "YOUR_SECRET_PASSWORD"; // לשנות!
+const ADMIN_PASSWORD = "PUT_YOUR_SECRET_HERE";
 
 const $ = id => document.getElementById(id);
 
 async function fetchJSON(url) {
-  const r = await fetch(url, { cache: "no-store" });
-  if (!r.ok) throw new Error(`${url} failed`);
+  const r = await fetch(url);
   return r.json();
 }
 
@@ -36,15 +34,16 @@ function showAnnotatorScreen() {
     <div class="layout">
       <div class="image-panel">
         <img id="elsImage">
-        <div id="imgCounter" style="margin-top:10px;"></div>
-      </div>
-      <div class="annotation-panel">
         <div class="legend-box">
           <b>Color legend:</b>
           Yellow = B cells,
           Red = T cells,
           Green = Proliferating cells (Ki67+)
         </div>
+        <div id="imgCounter" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="annotation-panel">
         <div id="questions"></div>
         <button id="btnSubmit">Submit & Next</button>
       </div>
@@ -56,6 +55,8 @@ function showAnnotatorScreen() {
 }
 
 function buildQuestions(isAdmin) {
+  $("questions").innerHTML = "";
+
   for (const [q, spec] of Object.entries(schema)) {
 
     const wrapper = document.createElement("div");
@@ -97,7 +98,7 @@ function buildQuestions(isAdmin) {
 
 async function resume() {
   const annotator = $("annotatorId").value.trim();
-  if (!annotator) return alert("Annotator ID required");
+  if (!annotator) return;
 
   if (annotator === ADMIN_PASSWORD) {
     showAdminScreen();
@@ -105,11 +106,7 @@ async function resume() {
   }
 
   showAnnotatorScreen();
-
-  const done = await fetchJSON(`/annotated/${annotator}`);
-  doneSet = new Set(done);
-
-  idx = images.findIndex(x => !doneSet.has(x));
+  idx = 0;
   render();
 }
 
@@ -119,26 +116,6 @@ function render() {
 }
 
 async function submit() {
-  const annotator = $("annotatorId").value.trim();
-  const answers = {};
-
-  for (const [q, spec] of Object.entries(schema)) {
-    const checked = document.querySelectorAll(`input[name="${q}"]:checked`);
-    answers[q] = spec.type === "multi"
-      ? Array.from(checked).map(x => x.value)
-      : (checked[0] ? checked[0].value : "");
-  }
-
-  await fetch("/annotate", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      image_id: images[idx],
-      annotator_id: annotator,
-      answers
-    })
-  });
-
   idx++;
   render();
 }
