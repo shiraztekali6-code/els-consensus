@@ -1,83 +1,61 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import Dict, List, Union
-from config.schema import QUESTION_SCHEMA
-
 import os
 import uuid
-import io
-import zipfile
-import pandas as pd
-from datetime import datetime
+from typing import Dict, Any
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import create_engine, text
+import io
+import csv
 
-# ===============================
-# ENV
-# ===============================
+# =====================================
+# CONFIG
+# =====================================
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
-ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL not set")
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    future=True
+)
 
-app = FastAPI(title="ELS Consensus Annotation Server")
-
-app.mount("/images", StaticFiles(directory="images"), name="images")
-app.mount("/ui", StaticFiles(directory="frontend", html=True), name="frontend")
+app = FastAPI()
 
 
-# ===============================
+# =====================================
 # MODELS
-# ===============================
+# =====================================
 
 class Annotation(BaseModel):
     image_id: str
     annotator_id: str
-    answers: Dict[str, Union[str, List[str]]]
+    answers: Dict[str, Any]
 
 
-# ===============================
-# SCHEMA ENDPOINT (FRONTEND NEEDS THIS)
-# ===============================
+# =====================================
+# HEALTH
+# =====================================
 
-@app.get("/schema")
-def get_schema():
-    return QUESTION_SCHEMA
-
-
-# ===============================
-# IMAGES LIST
-# ===============================
-
-IMAGES_DIR = "images"
-
-@app.get("/images-list")
-def get_images_list():
-    if not os.path.exists(IMAGES_DIR):
-        return []
-    images = [
-        f for f in os.listdir(IMAGES_DIR)
-        if f.lower().endswith((".png", ".jpg", ".jpeg", ".tif", ".tiff"))
-    ]
-    images.sort()
-    return images
+@app.get("/health")
+def health():
+    with engine.begin() as conn:
+        conn.execute(text("select 1"))
+    return {"ok": True}
 
 
-# ===============================
+# =====================================
 # SUBMIT ANNOTATION
-# ===============================
+# =====================================
 
 @app.post("/annotate")
 def submit_annotation(annotation: Annotation):
 
     a = annotation.answers
 
-    # ---- Multi question ----
     cells_multi = a["Which cell types are present in the ELS?"]
 
     row = {
@@ -126,94 +104,41 @@ def submit_annotation(annotation: Annotation):
     vals = ", ".join([f":{k}" for k in row.keys()])
 
     with engine.begin() as conn:
-    conn.execute(
-        text(f"insert into annotations_raw ({cols}) values ({vals})"),
-        row
-    )
-
-    update_consensus(annotation.image_id)
+        conn.execute(
+            text(f"insert into annotations_raw ({cols}) values ({vals})"),
+            row
+        )
 
     return {"ok": True}
 
 
-# ===============================
-# MAJORITY CONSENSUS
-# ===============================
-
-def update_consensus(image_id):
-
-    with engine.connect() as conn:
-        rows = conn.execute(
-            text("select * from annotations_raw where image_id = :img"),
-            {"img": image_id}
-        ).mappings().all()
-
-    if not rows:
-        return
-
-    consensus = {}
-    keys = [k for k in rows[0].keys() if k not in ["id", "image_id", "annotator_id", "timestamp"]]
-
-    for k in keys:
-        true_count = sum(1 for r in rows if r[k])
-        consensus[k] = true_count > (len(rows) // 2)
-
-    with engine.connect() as conn:
-        conn.execute(
-            text(f"""
-                insert into image_consensus (image_id, {", ".join(consensus.keys())})
-                values (:image_id, {", ".join([f":{k}" for k in consensus.keys()])})
-                on conflict (image_id)
-                do update set
-                {", ".join([f"{k}=:{k}" for k in consensus.keys()])},
-                updated_at = now()
-            """),
-            {"image_id": image_id, **consensus}
-        )
-        conn.commit()
-
-
-# ===============================
-# EXPORT
-# ===============================
+# =====================================
+# EXPORT RAW ANNOTATIONS
+# =====================================
 
 @app.get("/admin/export/annotations")
 def export_annotations(token: str):
 
-    if token != ADMIN_TOKEN:
+    if token != "els-admin-shiraz":
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    with engine.connect() as conn:
-        raw = conn.execute(text("select * from annotations_raw")).mappings().all()
-        cons = conn.execute(text("select * from image_consensus")).mappings().all()
+    with engine.begin() as conn:
+        result = conn.execute(text("select * from annotations_raw"))
+        rows = result.fetchall()
+        columns = result.keys()
 
-    raw_df = pd.DataFrame(raw)
-    cons_df = pd.DataFrame(cons)
+    output = io.StringIO()
+    writer = csv.writer(output)
 
-    buffer = io.BytesIO()
+    writer.writerow(columns)
 
-    with zipfile.ZipFile(buffer, "w") as zf:
-        raw_excel = io.BytesIO()
-        raw_df.to_excel(raw_excel, index=False)
-        zf.writestr("ELS_raw_data.xlsx", raw_excel.getvalue())
+    for row in rows:
+        writer.writerow(row)
 
-        cons_excel = io.BytesIO()
-        cons_df.to_excel(cons_excel, index=False)
-        zf.writestr("ELS_consensus_per_image.xlsx", cons_excel.getvalue())
-
-    buffer.seek(0)
+    output.seek(0)
 
     return StreamingResponse(
-        buffer,
-        media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=ELS_exports.zip"}
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=annotations.csv"}
     )
-
-
-# ===============================
-# HEALTH
-# ===============================
-
-@app.get("/health")
-def health():
-    return {"ok": True}
