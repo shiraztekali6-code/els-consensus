@@ -2,6 +2,7 @@ let schema = null;
 let images = [];
 let doneSet = new Set();
 let idx = 0;
+let isAdmin = false;
 
 const $ = id => document.getElementById(id);
 
@@ -15,7 +16,14 @@ function imageUrl(name) {
   return `/images/${encodeURIComponent(name)}?v=${Date.now()}`;
 }
 
+function formatTitle(key) {
+  return key
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function buildQuestions() {
+
   $("questions").innerHTML = `
     <div class="legend-box">
       <b>Color Legend</b><br>
@@ -30,13 +38,20 @@ function buildQuestions() {
     const wrapper = document.createElement("div");
     wrapper.className = "question-card";
 
-    const title = document.createElement("div");
-    title.className = "question-title";
-    title.innerText = q;
+    // 🔹 Show title only for admin
+    if (isAdmin) {
+      const title = document.createElement("div");
+      title.className = "question-title";
+      title.innerText = formatTitle(q);
+      wrapper.appendChild(title);
+    }
 
-    const desc = document.createElement("div");
-    desc.className = "question-desc";
-    desc.innerText = spec.description || "";
+    if (spec.description) {
+      const desc = document.createElement("div");
+      desc.className = "question-desc";
+      desc.innerText = spec.description;
+      wrapper.appendChild(desc);
+    }
 
     const options = document.createElement("div");
     options.className = "options-row";
@@ -57,10 +72,7 @@ function buildQuestions() {
       options.appendChild(label);
     });
 
-    wrapper.appendChild(title);
-    if (spec.description) wrapper.appendChild(desc);
     wrapper.appendChild(options);
-
     $("questions").appendChild(wrapper);
   }
 }
@@ -80,11 +92,13 @@ function collectAnswers() {
 
 function allAnswered(ans) {
   let ok = true;
+
   document.querySelectorAll(".question-card").forEach(card => {
     card.style.border = "1px solid #e5e7eb";
   });
 
   for (const [q, spec] of Object.entries(schema)) {
+
     if (spec.type === "multi" && ans[q].length === 0) ok = false;
     if (spec.type !== "multi" && !ans[q]) ok = false;
 
@@ -96,6 +110,7 @@ function allAnswered(ans) {
       });
     }
   }
+
   return ok;
 }
 
@@ -109,11 +124,13 @@ async function resume() {
   doneSet = new Set(done);
 
   idx = images.findIndex(x => !doneSet.has(x));
+
   if (idx === -1) {
     $("elsImage").removeAttribute("src");
     $("imgCounter").innerText = "All images annotated 🎉";
     return;
   }
+
   render();
 }
 
@@ -149,6 +166,12 @@ function downloadCSV() {
   if (!t) return alert("Admin token required");
   window.open(`/admin/export/annotations?token=${encodeURIComponent(t)}`, "_blank");
 }
+
+// 🔹 Detect admin mode automatically
+$("adminToken").addEventListener("input", () => {
+  isAdmin = $("adminToken").value.length > 0;
+  buildQuestions();
+});
 
 $("btnResume").onclick = resume;
 $("btnSubmit").onclick = submit;
