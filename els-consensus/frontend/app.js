@@ -2,7 +2,8 @@ let schema = null;
 let images = [];
 let doneSet = new Set();
 let idx = 0;
-let isAdmin = false;
+
+const ADMIN_USERNAME = "ADMIN_SECRET_2025"; // 🔐 תשני את זה
 
 const $ = id => document.getElementById(id);
 
@@ -17,13 +18,42 @@ function imageUrl(name) {
 }
 
 function formatTitle(key) {
-  return key
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, c => c.toUpperCase());
+  return key.replace(/_/g, " ");
+}
+
+function showAdminScreen() {
+  $("mainContent").innerHTML = `
+    <div class="admin-screen">
+      <div class="admin-title">Admin Panel</div>
+      <p><b>Internal Question Keys (CSV column names):</b></p>
+      <ul>
+        ${Object.keys(schema).map(k => `<li>${k}</li>`).join("")}
+      </ul>
+      <br>
+      <button onclick="downloadCSV()">Download All Annotations (CSV)</button>
+    </div>
+  `;
+}
+
+function showAnnotatorScreen() {
+  $("mainContent").innerHTML = `
+    <div class="layout">
+      <div class="image-panel">
+        <img id="elsImage">
+        <div id="imgCounter" style="margin-top:10px;"></div>
+      </div>
+      <div class="annotation-panel">
+        <div id="questions"></div>
+        <button id="btnSubmit">Submit & Next</button>
+      </div>
+    </div>
+  `;
+
+  buildQuestions();
+  $("btnSubmit").onclick = submit;
 }
 
 function buildQuestions() {
-
   $("questions").innerHTML = `
     <div class="legend-box">
       <b>Color Legend</b><br>
@@ -38,20 +68,11 @@ function buildQuestions() {
     const wrapper = document.createElement("div");
     wrapper.className = "question-card";
 
-    // 🔹 Show title only for admin
-    if (isAdmin) {
-      const title = document.createElement("div");
-      title.className = "question-title";
-      title.innerText = formatTitle(q);
-      wrapper.appendChild(title);
-    }
+    const title = document.createElement("div");
+    title.className = "question-title";
+    title.innerText = spec.description || formatTitle(q);
 
-    if (spec.description) {
-      const desc = document.createElement("div");
-      desc.className = "question-desc";
-      desc.innerText = spec.description;
-      wrapper.appendChild(desc);
-    }
+    wrapper.appendChild(title);
 
     const options = document.createElement("div");
     options.className = "options-row";
@@ -68,7 +89,6 @@ function buildQuestions() {
 
       label.appendChild(input);
       label.append(" " + opt);
-
       options.appendChild(label);
     });
 
@@ -90,35 +110,16 @@ function collectAnswers() {
   return a;
 }
 
-function allAnswered(ans) {
-  let ok = true;
-
-  document.querySelectorAll(".question-card").forEach(card => {
-    card.style.border = "1px solid #e5e7eb";
-  });
-
-  for (const [q, spec] of Object.entries(schema)) {
-
-    if (spec.type === "multi" && ans[q].length === 0) ok = false;
-    if (spec.type !== "multi" && !ans[q]) ok = false;
-
-    if (!ans[q] || (Array.isArray(ans[q]) && ans[q].length === 0)) {
-      document.querySelectorAll(".question-card").forEach(card => {
-        if (card.querySelector(`input[data-q="${q}"]`)) {
-          card.style.border = "2px solid #e11d48";
-        }
-      });
-    }
-  }
-
-  return ok;
-}
-
 async function resume() {
   const annotator = $("annotatorId").value.trim();
   if (!annotator) return alert("Annotator ID required");
 
-  localStorage.setItem("els.annotator", annotator);
+  if (annotator === ADMIN_USERNAME) {
+    showAdminScreen();
+    return;
+  }
+
+  showAnnotatorScreen();
 
   const done = await fetchJSON(`/annotated/${annotator}`);
   doneSet = new Set(done);
@@ -142,10 +143,7 @@ function render() {
 
 async function submit() {
   const annotator = $("annotatorId").value.trim();
-  if (!annotator) return alert("Annotator ID required");
-
   const answers = collectAnswers();
-  if (!allAnswered(answers)) return;
 
   await fetch("/annotate", {
     method: "POST",
@@ -157,33 +155,16 @@ async function submit() {
     })
   });
 
-  doneSet.add(images[idx]);
   await resume();
 }
 
 function downloadCSV() {
-  const t = $("adminToken").value;
-  if (!t) return alert("Admin token required");
-  window.open(`/admin/export/annotations?token=${encodeURIComponent(t)}`, "_blank");
+  window.open(`/admin/export/annotations?token=${ADMIN_USERNAME}`, "_blank");
 }
 
-// 🔹 Detect admin mode automatically
-$("adminToken").addEventListener("input", () => {
-  isAdmin = $("adminToken").value.length > 0;
-  buildQuestions();
-});
-
 $("btnResume").onclick = resume;
-$("btnSubmit").onclick = submit;
 
 (async () => {
   schema = await fetchJSON("/schema");
   images = await fetchJSON("/images-list");
-  buildQuestions();
-
-  const last = localStorage.getItem("els.annotator");
-  if (last) {
-    $("annotatorId").value = last;
-    await resume();
-  }
 })();
