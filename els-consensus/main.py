@@ -125,9 +125,11 @@ def submit_annotation(annotation: Annotation):
     cols = ", ".join(row.keys())
     vals = ", ".join([f":{k}" for k in row.keys()])
 
-    with engine.connect() as conn:
-        conn.execute(text(f"insert into annotations_raw ({cols}) values ({vals})"), row)
-        conn.commit()
+    with engine.begin() as conn:
+    conn.execute(
+        text(f"insert into annotations_raw ({cols}) values ({vals})"),
+        row
+    )
 
     update_consensus(annotation.image_id)
 
