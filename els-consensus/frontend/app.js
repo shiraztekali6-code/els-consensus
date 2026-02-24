@@ -17,7 +17,7 @@ function imageUrl(name) {
 
 function buildQuestions() {
   $("questions").innerHTML = `
-    <div style="border:1px solid #ccc;padding:10px;margin-bottom:10px;">
+    <div class="legend-box">
       <b>Color Legend</b><br>
       Yellow = B cells<br>
       Red = T cells<br>
@@ -26,21 +26,42 @@ function buildQuestions() {
   `;
 
   for (const [q, spec] of Object.entries(schema)) {
-    const fs = document.createElement("fieldset");
-    fs.innerHTML = `<legend>${q}</legend><p>${spec.description || ""}</p>`;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "question-card";
+
+    const title = document.createElement("div");
+    title.className = "question-title";
+    title.innerText = q;
+
+    const desc = document.createElement("div");
+    desc.className = "question-desc";
+    desc.innerText = spec.description || "";
+
+    const options = document.createElement("div");
+    options.className = "options-row";
+
     spec.options.forEach(opt => {
-      const l = document.createElement("label");
-      const i = document.createElement("input");
-      i.type = spec.type === "multi" ? "checkbox" : "radio";
-      i.name = q;
-      i.value = opt;
-      i.dataset.q = q;
-      l.appendChild(i);
-      l.append(" " + opt);
-      fs.appendChild(l);
-      fs.appendChild(document.createElement("br"));
+      const label = document.createElement("label");
+      label.className = "option-label";
+
+      const input = document.createElement("input");
+      input.type = spec.type === "multi" ? "checkbox" : "radio";
+      input.name = q;
+      input.value = opt;
+      input.dataset.q = q;
+
+      label.appendChild(input);
+      label.append(" " + opt);
+
+      options.appendChild(label);
     });
-    $("questions").appendChild(fs);
+
+    wrapper.appendChild(title);
+    if (spec.description) wrapper.appendChild(desc);
+    wrapper.appendChild(options);
+
+    $("questions").appendChild(wrapper);
   }
 }
 
@@ -58,11 +79,24 @@ function collectAnswers() {
 }
 
 function allAnswered(ans) {
+  let ok = true;
+  document.querySelectorAll(".question-card").forEach(card => {
+    card.style.border = "1px solid #e5e7eb";
+  });
+
   for (const [q, spec] of Object.entries(schema)) {
-    if (spec.type === "multi" && ans[q].length === 0) return false;
-    if (spec.type !== "multi" && !ans[q]) return false;
+    if (spec.type === "multi" && ans[q].length === 0) ok = false;
+    if (spec.type !== "multi" && !ans[q]) ok = false;
+
+    if (!ans[q] || (Array.isArray(ans[q]) && ans[q].length === 0)) {
+      document.querySelectorAll(".question-card").forEach(card => {
+        if (card.querySelector(`input[data-q="${q}"]`)) {
+          card.style.border = "2px solid #e11d48";
+        }
+      });
+    }
   }
-  return true;
+  return ok;
 }
 
 async function resume() {
@@ -94,7 +128,7 @@ async function submit() {
   if (!annotator) return alert("Annotator ID required");
 
   const answers = collectAnswers();
-  if (!allAnswered(answers)) return alert("Answer all questions");
+  if (!allAnswered(answers)) return;
 
   await fetch("/annotate", {
     method: "POST",
