@@ -5,16 +5,17 @@ import csv
 from typing import Dict, Any
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import create_engine, text
 
+from config.schema import SCHEMA
 
-# ======================
+
+# =====================
 # CONFIG
-# ======================
+# =====================
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -26,30 +27,29 @@ engine = create_engine(
 
 app = FastAPI()
 
-# ======================
-# STATIC + UI
-# ======================
+# =====================
+# FRONTEND ROUTES
+# =====================
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/images", StaticFiles(directory="images"), name="images")
+app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
 
 @app.get("/")
 def serve_index():
-    return FileResponse("static/index.html")
+    return FileResponse("frontend/index.html")
+
+@app.get("/app.js")
+def serve_js():
+    return FileResponse("frontend/app.js")
+
+@app.get("/schema")
+def get_schema():
+    return SCHEMA
 
 
-# ======================
-# MODELS
-# ======================
-
-class Annotation(BaseModel):
-    image_id: str
-    annotator_id: str
-    answers: Dict[str, Any]
-
-
-# ======================
+# =====================
 # HEALTH
-# ======================
+# =====================
 
 @app.get("/health")
 def health():
@@ -58,9 +58,19 @@ def health():
     return {"ok": True}
 
 
-# ======================
-# UPDATE CONSENSUS
-# ======================
+# =====================
+# MODEL
+# =====================
+
+class Annotation(BaseModel):
+    image_id: str
+    annotator_id: str
+    answers: Dict[str, Any]
+
+
+# =====================
+# CONSENSUS
+# =====================
 
 def update_consensus(image_id: str):
 
@@ -100,9 +110,9 @@ def update_consensus(image_id: str):
         )
 
 
-# ======================
+# =====================
 # SUBMIT
-# ======================
+# =====================
 
 @app.post("/annotate")
 def submit_annotation(annotation: Annotation):
@@ -114,6 +124,7 @@ def submit_annotation(annotation: Annotation):
         "id": str(uuid.uuid4()),
         "image_id": annotation.image_id,
         "annotator_id": annotation.annotator_id,
+
         "cells_present__B": "B cells are present" in cells_multi,
         "cells_present__T": "T cells are present" in cells_multi,
         "cells_present__Ki67": "Proliferating cells (Ki67+) are present" in cells_multi,
@@ -133,9 +144,9 @@ def submit_annotation(annotation: Annotation):
     return {"ok": True}
 
 
-# ======================
+# =====================
 # EXPORT RAW
-# ======================
+# =====================
 
 @app.get("/admin/export/raw")
 def export_raw(token: str):
@@ -161,9 +172,9 @@ def export_raw(token: str):
     )
 
 
-# ======================
+# =====================
 # EXPORT CONSENSUS
-# ======================
+# =====================
 
 @app.get("/admin/export/consensus")
 def export_consensus(token: str):
