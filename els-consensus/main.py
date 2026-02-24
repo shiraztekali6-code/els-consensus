@@ -3,12 +3,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Dict, List, Union
+from config.schema import QUESTION_SCHEMA
+
 import json
 import os
-import csv
+import io
+import zipfile
+import pandas as pd
+from collections import Counter
 from datetime import datetime
-
-from config.schema import QUESTION_SCHEMA
 
 app = FastAPI(title="ELS Consensus Annotation Server")
 
@@ -103,31 +106,96 @@ def submit_annotation(annotation: Annotation):
     return {"ok": True}
 
 
-# ---------- Admin: Export CSV ----------
+# ---------- Admin: Export Raw + Consensus (ZIP) ----------
 @app.get("/admin/export/annotations")
 def export_annotations(token: str):
+
     ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN")
+
     if ADMIN_TOKEN is None or token != ADMIN_TOKEN:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     data = load_data()
 
-    def generate():
-        yield "image_id,annotator_id,question,answer\n"
-        for image_id, anns in data.items():
-            for ann in anns:
-                annotator = ann["annotator_id"]
-                for q, ans in ann["answers"].items():
-                    if isinstance(ans, list):
-                        for a in ans:
-                            yield f"{image_id},{annotator},{q},{a}\n"
-                    else:
-                        yield f"{image_id},{annotator},{q},{ans}\n"
+    # =======================
+    # RAW DATA (wide format)
+    # =======================
+    raw_rows = []
+
+    for image_id, anns in data.items():
+        for ann in anns:
+
+            row = {
+                "image_id": image_id,
+                "annotator_id": ann["annotator_id"],
+                "timestamp": ann.get("timestamp", "")
+            }
+
+            for q in QUESTION_SCHEMA.keys():
+                val = ann["answers"].get(q, "")
+                if isinstance(val, list):
+                    row[q] = ", ".join(val)
+                else:
+                    row[q] = val
+
+            raw_rows.append(row)
+
+    raw_df = pd.DataFrame(raw_rows)
+
+    # =======================
+    # CONSENSUS PER IMAGE
+    # =======================
+    consensus_rows = []
+
+    for image_id, anns in data.items():
+
+        image_row = {"image_id": image_id}
+
+        for q, spec in QUESTION_SCHEMA.items():
+
+            answers = [ann["answers"][q] for ann in anns]
+
+            if spec["type"] == "multi":
+                # One-hot majority encoding
+                for opt in spec["options"]:
+                    count = sum(
+                        1 for a in answers
+                        if isinstance(a, list) and opt in a
+                    )
+                    image_row[f"{q}__{opt}"] = int(count >= len(answers) / 2)
+
+            else:
+                counter = Counter(answers)
+                majority = counter.most_common(1)[0][0] if counter else ""
+                image_row[q] = majority
+
+        consensus_rows.append(image_row)
+
+    consensus_df = pd.DataFrame(consensus_rows)
+
+    # =======================
+    # ZIP EXPORT
+    # =======================
+    buffer = io.BytesIO()
+
+    with zipfile.ZipFile(buffer, "w") as zf:
+
+        raw_excel = io.BytesIO()
+        raw_df.to_excel(raw_excel, index=False, engine="openpyxl")
+        zf.writestr("ELS_raw_data.xlsx", raw_excel.getvalue())
+
+        consensus_excel = io.BytesIO()
+        consensus_df.to_excel(consensus_excel, index=False, engine="openpyxl")
+        zf.writestr("ELS_consensus_per_image.xlsx", consensus_excel.getvalue())
+
+    buffer.seek(0)
 
     return StreamingResponse(
-        generate(),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=annotations.csv"}
+        buffer,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": "attachment; filename=ELS_exports.zip"
+        }
     )
 
 
