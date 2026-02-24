@@ -6,121 +6,114 @@
 
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #f5f7fa;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f6f8fb;
       margin: 0;
       padding: 0;
+      color: #1a1a1a;
     }
 
     .container {
       width: 95%;
       margin: auto;
-      padding: 25px;
+      padding: 30px;
     }
 
     h1 {
       font-weight: 600;
-      margin-bottom: 5px;
+      margin-bottom: 4px;
+      font-size: 26px;
     }
 
     .subtitle {
-      color: #555;
-      font-size: 15px;
+      color: #666;
+      font-size: 14px;
       margin-bottom: 25px;
     }
 
     .top-bar {
       display: flex;
-      gap: 10px;
+      gap: 12px;
       align-items: center;
-      margin-bottom: 20px;
+      margin-bottom: 25px;
     }
 
-    input[type="text"] {
-      padding: 8px 10px;
+    input {
+      padding: 8px 12px;
       border: 1px solid #ccc;
-      border-radius: 6px;
+      border-radius: 8px;
       font-size: 14px;
     }
 
     button {
-      font-size: 15px;
       padding: 8px 14px;
       border-radius: 8px;
       border: none;
       cursor: pointer;
+      font-size: 14px;
+      background-color: #e2e8f0;
     }
 
     #btnSubmit {
-      background-color: #1f6feb;
+      background-color: #2563eb;
       color: white;
       width: 100%;
       margin-top: 20px;
-    }
-
-    #btnSubmit:hover {
-      background-color: #155ac9;
-    }
-
-    #btnResume {
-      background-color: #e2e8f0;
+      font-weight: 500;
     }
 
     .layout {
       display: flex;
-      gap: 30px;
+      gap: 35px;
+    }
+
+    .image-panel, .annotation-panel {
+      background: white;
+      padding: 22px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.05);
     }
 
     .image-panel {
       flex: 1.4;
-      background: white;
-      padding: 15px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
-
-    .image-panel img {
-      width: 100%;
-      border-radius: 8px;
     }
 
     .annotation-panel {
       flex: 1;
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
       max-height: 85vh;
       overflow-y: auto;
     }
 
+    .image-panel img {
+      width: 100%;
+      border-radius: 10px;
+    }
+
     .legend-box {
-      border: 1px solid #e5e7eb;
+      font-size: 13px;
+      color: #444;
+      margin-bottom: 25px;
       padding: 12px;
-      margin-bottom: 20px;
       border-radius: 8px;
-      background: #fafafa;
+      background: #f1f5f9;
     }
 
     .question-card {
-      border: 1px solid #e5e7eb;
-      padding: 16px;
-      margin-bottom: 20px;
-      border-radius: 12px;
-      background: white;
+      margin-bottom: 24px;
     }
 
     .question-title {
       font-size: 16px;
       font-weight: 600;
-      margin-bottom: 10px;
-      color: #111;
+      margin-bottom: 8px;
+      line-height: 1.4;
     }
 
-    .question-desc {
-      font-size: 14px;
-      color: #444;
-      margin-bottom: 12px;
+    .admin-key {
+      font-size: 12px;
+      font-family: monospace;
+      color: #888;
+      margin-bottom: 6px;
     }
 
     .options-row {
@@ -130,23 +123,22 @@
     }
 
     .option-label {
-      background: #f1f5f9;
-      padding: 6px 10px;
-      border-radius: 6px;
+      background: #eef2f7;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 14px;
       cursor: pointer;
     }
 
-    .admin-screen {
+    .admin-panel {
       background: white;
       padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.05);
     }
 
-    .admin-title {
-      font-size: 20px;
-      font-weight: 600;
-      margin-bottom: 20px;
+    .admin-panel h2 {
+      margin-top: 0;
     }
 
   </style>
