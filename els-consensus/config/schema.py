@@ -11,7 +11,8 @@ QUESTION_SCHEMA = {
             "Proliferating cells (Ki67+) are present"
         ],
         "description": (
-            "Color legend: Yellow = B cells, Red = T cells, Green = Proliferating cells (Ki67+).\n\n"
+            "Color legend: Yellow = B cells, Red = T cells, "
+            "Green = Proliferating cells (Ki67+).\n\n"
             "Select all cell types that are clearly present within the ELS. "
             "Base your answer on clear, specific staining rather than faint or ambiguous signal."
         )
@@ -63,7 +64,8 @@ QUESTION_SCHEMA = {
             "High separation (clearly separated areas with relatively sharp boundaries)"
         ],
         "description": (
-            "Assess the degree of spatial separation between B-cell–rich and T-cell–rich areas."
+            "Assess the degree of spatial separation between B-cell–rich "
+            "and T-cell–rich areas."
         )
     },
 
@@ -95,8 +97,8 @@ QUESTION_SCHEMA = {
         ],
         "description": (
             "GC-like structure is defined as a clearly localized cluster of proliferating "
-            "(Ki67+) cells situated within or tightly surrounded by a B- or T-cell–rich area "
-            "(yellow or red), and not diffusely distributed across the entire ELS."
+            "(Ki67+) cells situated within or tightly surrounded by a B- or T-cell–rich "
+            "area (yellow or red), and not diffusely distributed across the entire ELS."
         )
     }
 }
