@@ -1,143 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>ELS Consensus</title>
-
-<style>
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: #f3f4f6;
-  margin: 0;
-  padding: 0;
-}
-
-.container {
-  max-width: 900px;
-  margin: auto;
-  padding: 20px;
-}
-
-h1 {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-.top-bar {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-input {
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  flex: 1;
-}
-
-button {
-  padding: 8px 14px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  font-weight: 500;
-}
-
-.primary {
-  background: #2563eb;
-  color: white;
-}
-
-.primary:hover {
-  background: #1d4ed8;
-}
-
-.admin-btn {
-  background: #111827;
-  color: white;
-}
-
-.image-box {
-  background: white;
-  padding: 15px;
-  border-radius: 12px;
-  margin-bottom: 10px;
-  text-align: center;
-}
-
-.image-box img {
-  max-width: 100%;
-  border-radius: 8px;
-}
-
-.legend {
-  background: white;
-  padding: 10px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-  font-size: 14px;
-}
-
-.legend div {
-  margin-bottom: 4px;
-}
-
-.counter {
-  margin-bottom: 10px;
-  font-weight: 500;
-}
-
-.questions {
-  margin-bottom: 20px;
-}
-
-.submit-btn {
-  width: 100%;
-  padding: 12px;
-  font-size: 16px;
-}
-</style>
 </head>
-
 <body>
-<div class="container">
 
-<h1>ELS Consensus Annotation</h1>
+<h2>ELS Consensus Annotation</h2>
 
-<div class="top-bar">
-  <input id="annotatorId" placeholder="Annotator ID or Admin Token" />
-  <button id="btnEnter" class="primary">Enter</button>
+<input id="annotatorId" placeholder="Annotator ID or Admin Token" />
+<button id="enterBtn">Enter</button>
+
+<div id="adminPanel" style="display:none;">
+  <button id="downloadBtn">Download CSV</button>
 </div>
 
-<div id="adminPanel" style="display:none; margin-bottom:20px;">
-  <button id="btnDownload" class="admin-btn">
-    Download annotations (CSV)
-  </button>
-</div>
+<br><br>
 
-<div class="image-box">
-  <img id="elsImage" />
-</div>
+<img id="elsImage" width="600" />
+<div id="imgCounter"></div>
 
-<div class="legend">
-  <div><strong>Color Legend</strong></div>
-  <div>🟡 Yellow = B cells</div>
-  <div>🔴 Red = T cells</div>
-  <div>🟢 Green = Proliferating cells (Ki67+)</div>
-</div>
+<div id="questions"></div>
 
-<div id="imgCounter" class="counter"></div>
+<button id="submitBtn">Submit</button>
 
-<div id="questions" class="questions"></div>
+<script src="/app.js"></script>
 
-<button id="btnSubmit" class="primary submit-btn">
-  Submit
-</button>
-
-</div>
-
-<script src="app.js"></script>
 </body>
 </html>
