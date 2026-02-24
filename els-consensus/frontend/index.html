@@ -1,153 +1,143 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>ELS Consensus Annotation</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ELS Consensus</title>
 
-  <style>
-    body {
-      font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-      background-color: #f4f6fa;
-      margin: 0;
-      padding: 0;
-      color: #1a1a1a;
-    }
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #f3f4f6;
+  margin: 0;
+  padding: 0;
+}
 
-    .container {
-      width: 95%;
-      margin: auto;
-      padding: 30px;
-    }
+.container {
+  max-width: 900px;
+  margin: auto;
+  padding: 20px;
+}
 
-    h1 {
-      font-weight: 600;
-      font-size: 24px;
-      margin-bottom: 6px;
-    }
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+}
 
-    .subtitle {
-      font-size: 14px;
-      color: #666;
-      margin-bottom: 25px;
-    }
+.top-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
 
-    .top-bar {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 25px;
-    }
+input {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  flex: 1;
+}
 
-    input {
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-    }
+button {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+}
 
-    button {
-      padding: 8px 14px;
-      border-radius: 8px;
-      border: none;
-      background: #2563eb;
-      color: white;
-      cursor: pointer;
-    }
+.primary {
+  background: #2563eb;
+  color: white;
+}
 
-    .layout {
-      display: flex;
-      gap: 35px;
-    }
+.primary:hover {
+  background: #1d4ed8;
+}
 
-    .image-panel, .annotation-panel {
-      background: white;
-      padding: 22px;
-      border-radius: 14px;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.05);
-    }
+.admin-btn {
+  background: #111827;
+  color: white;
+}
 
-    .image-panel {
-      flex: 1.4;
-    }
+.image-box {
+  background: white;
+  padding: 15px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  text-align: center;
+}
 
-    .annotation-panel {
-      flex: 1;
-      max-height: 85vh;
-      overflow-y: auto;
-    }
+.image-box img {
+  max-width: 100%;
+  border-radius: 8px;
+}
 
-    .image-panel img {
-      width: 100%;
-      border-radius: 10px;
-    }
+.legend {
+  background: white;
+  padding: 10px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
 
-    .legend-box {
-      margin-top: 15px;
-      font-size: 13px;
-      padding: 10px;
-      border-radius: 8px;
-      background: #eef2f7;
-    }
+.legend div {
+  margin-bottom: 4px;
+}
 
-    .question-card {
-      border: 2px solid #dbeafe;
-      background: #f8fbff;
-      padding: 18px;
-      border-radius: 12px;
-      margin-bottom: 25px;
-    }
+.counter {
+  margin-bottom: 10px;
+  font-weight: 500;
+}
 
-    .question-title {
-      font-weight: 600;
-      font-size: 15px;
-      margin-bottom: 14px;
-    }
+.questions {
+  margin-bottom: 20px;
+}
 
-    .admin-key {
-      font-family: monospace;
-      font-size: 12px;
-      color: #666;
-      margin-bottom: 6px;
-    }
-
-    .options-row {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .option-label {
-      background: #e5e7eb;
-      padding: 8px 10px;
-      border-radius: 8px;
-      font-size: 14px;
-      cursor: pointer;
-    }
-
-    .admin-panel {
-      background: white;
-      padding: 30px;
-      border-radius: 14px;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.05);
-    }
-
-  </style>
+.submit-btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+}
+</style>
 </head>
 
 <body>
 <div class="container">
 
 <h1>ELS Consensus Annotation</h1>
-<div class="subtitle">Blinded Human Structural Feature Encoding</div>
 
 <div class="top-bar">
-  <b>Annotator ID:</b>
-  <input id="annotatorId" type="text">
-  <button id="btnResume">Enter</button>
+  <input id="annotatorId" placeholder="Annotator ID or Admin Token" />
+  <button id="btnEnter" class="primary">Enter</button>
 </div>
 
-<div id="mainContent"></div>
+<div id="adminPanel" style="display:none; margin-bottom:20px;">
+  <button id="btnDownload" class="admin-btn">
+    Download annotations (CSV)
+  </button>
+</div>
+
+<div class="image-box">
+  <img id="elsImage" />
+</div>
+
+<div class="legend">
+  <div><strong>Color Legend</strong></div>
+  <div>🟡 Yellow = B cells</div>
+  <div>🔴 Red = T cells</div>
+  <div>🟢 Green = Proliferating cells (Ki67+)</div>
+</div>
+
+<div id="imgCounter" class="counter"></div>
+
+<div id="questions" class="questions"></div>
+
+<button id="btnSubmit" class="primary submit-btn">
+  Submit
+</button>
+
+</div>
 
 <script src="app.js"></script>
-</div>
 </body>
 </html>
