@@ -24,8 +24,8 @@
     }
 
     .subtitle {
-      color: #666;
-      font-size: 14px;
+      color: #555;
+      font-size: 15px;
       margin-bottom: 25px;
     }
 
@@ -36,11 +36,11 @@
       margin-bottom: 20px;
     }
 
-    input[type="text"],
-    input[type="password"] {
-      padding: 6px 8px;
+    input[type="text"] {
+      padding: 8px 10px;
       border: 1px solid #ccc;
       border-radius: 6px;
+      font-size: 14px;
     }
 
     button {
@@ -104,26 +104,23 @@
 
     .question-card {
       border: 1px solid #e5e7eb;
-      padding: 14px;
-      margin-bottom: 18px;
-      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 20px;
+      border-radius: 12px;
       background: white;
-      transition: 0.2s ease;
-    }
-
-    .question-card:hover {
-      background: #f9fbff;
     }
 
     .question-title {
+      font-size: 16px;
       font-weight: 600;
-      margin-bottom: 6px;
+      margin-bottom: 10px;
+      color: #111;
     }
 
     .question-desc {
-      font-size: 13px;
-      color: #666;
-      margin-bottom: 10px;
+      font-size: 14px;
+      color: #444;
+      margin-bottom: 12px;
     }
 
     .options-row {
@@ -139,22 +136,19 @@
       cursor: pointer;
     }
 
-    .option-label input {
-      margin-right: 4px;
+    .admin-screen {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     }
 
-    .admin-section {
-      margin-top: 40px;
-      padding: 15px;
-      background: #f1f5f9;
-      border-radius: 8px;
+    .admin-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 20px;
     }
 
-    #error {
-      color: red;
-      font-weight: bold;
-      margin-bottom: 15px;
-    }
   </style>
 </head>
 
@@ -167,30 +161,10 @@
 <div class="top-bar">
   <b>Annotator ID:</b>
   <input id="annotatorId" type="text">
-  <button id="btnResume">Resume</button>
+  <button id="btnResume">Enter</button>
 </div>
 
-<div id="error"></div>
-
-<div class="layout">
-
-  <div class="image-panel">
-    <img id="elsImage" alt="ELS image">
-    <div id="imgCounter" style="margin-top:10px;"></div>
-  </div>
-
-  <div class="annotation-panel">
-    <div id="questions"></div>
-    <button id="btnSubmit">Submit & Next</button>
-  </div>
-
-</div>
-
-<div class="admin-section">
-  <h3>Admin</h3>
-  <input id="adminToken" type="password" placeholder="Admin token">
-  <button onclick="downloadCSV()">Download all annotations (CSV)</button>
-</div>
+<div id="mainContent"></div>
 
 <script src="app.js"></script>
 </div>
