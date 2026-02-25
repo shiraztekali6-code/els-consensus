@@ -1,52 +1,80 @@
-import os
-import uuid
-import io
-import csv
-from typing import Dict, Any, List
-
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from sqlalchemy import create_engine, text
+from typing import Dict, List, Union
+import json
+import os
 
 from config.schema import QUESTION_SCHEMA
 
+app = FastAPI(title="ELS Consensus Annotation Server")
 
-# ============================================================
-# DATABASE
-# ============================================================
-
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL is not set")
-
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,
-    future=True
-)
-
-app = FastAPI()
+DATA_PATH = "data/annotations.json"
+IMAGES_DIR = "images"
+FRONTEND_DIR = "frontend"
 
 
-# ============================================================
-# STATIC FILES
-# ============================================================
+# -----------------------
+# Utilities
+# -----------------------
+def load_data():
+    if not os.path.exists(DATA_PATH):
+        return {}
+    with open(DATA_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-app.mount("/images", StaticFiles(directory="images"), name="images")
-app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
+
+def save_data(data):
+    os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
+    with open(DATA_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def validate_answers(answers: dict):
+    for question, spec in QUESTION_SCHEMA.items():
+        if question not in answers:
+            raise HTTPException(status_code=400, detail=f"Missing answer for '{question}'")
+
+        value = answers[question]
+
+        if spec["type"] == "multi":
+            if not isinstance(value, list):
+                raise HTTPException(status_code=400, detail=f"'{question}' must be a list")
+            # מאפשר גם רשימה ריקה (לפעמים באמת אין משהו לבחור)
+            for v in value:
+                if v not in spec["options"]:
+                    raise HTTPException(status_code=400, detail=f"Invalid value '{v}' for '{question}'")
+
+        elif spec["type"] == "single":
+            if value not in spec["options"]:
+                raise HTTPException(status_code=400, detail=f"Invalid value '{value}' for '{question}'")
+
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown schema type for '{question}'")
+
+
+# -----------------------
+# Models
+# -----------------------
+class Annotation(BaseModel):
+    image_id: str
+    annotator_id: str
+    answers: Dict[str, Union[str, List[str]]]
+
+
+# -----------------------
+# API routes (שמים לפני mount כדי שלא יידרסו)
+# -----------------------
+@app.get("/health")
+def health():
+    return {"ok": True}
 
 
 @app.get("/")
 def root():
-    return FileResponse("frontend/index.html")
-
-
-@app.get("/app.js")
-def serve_js():
-    return FileResponse("frontend/app.js")
+    # להפוך את / לכניסה ל-UI
+    return RedirectResponse(url="/ui/")
 
 
 @app.get("/schema")
@@ -54,199 +82,63 @@ def get_schema():
     return QUESTION_SCHEMA
 
 
-@app.get("/images")
-def list_images():
-    files = os.listdir("images")
-    images = [f for f in files if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+@app.get("/images-list")
+def get_images_list():
+    if not os.path.exists(IMAGES_DIR):
+        return []
+    images = [
+        f for f in os.listdir(IMAGES_DIR)
+        if f.lower().endswith((".png", ".jpg", ".jpeg", ".tif", ".tiff"))
+    ]
     images.sort()
     return images
 
 
-# ============================================================
-# HEALTH CHECK
-# ============================================================
-
-@app.get("/health")
-def health():
-    with engine.begin() as conn:
-        conn.execute(text("select 1"))
-    return {"ok": True}
-
-
-# ============================================================
-# MODEL
-# ============================================================
-
-class Annotation(BaseModel):
-    image_id: str
-    annotator_id: str
-    answers: Dict[str, Any]
-
-
-# ============================================================
-# CONSENSUS LOGIC
-# ============================================================
-
-def update_consensus(image_id: str):
-
-    with engine.begin() as conn:
-
-        rows = conn.execute(
-            text("select * from annotations_raw where image_id = :id"),
-            {"id": image_id}
-        ).mappings().all()
-
-        if not rows:
-            return
-
-        total = len(rows)
-
-        feature_cols = [
-            c for c in rows[0].keys()
-            if c not in ("id", "image_id", "annotator_id")
-        ]
-
-        consensus_row = {
-            "image_id": image_id,
-            "n_annotations": total
-        }
-
-        for col in feature_cols:
-            true_count = sum(1 for r in rows if r[col])
-            consensus_row[col] = true_count > total / 2
-
-        conn.execute(
-            text("delete from image_consensus where image_id = :id"),
-            {"id": image_id}
-        )
-
-        cols = ", ".join(consensus_row.keys())
-        vals = ", ".join([f":{k}" for k in consensus_row.keys()])
-
-        conn.execute(
-            text(f"insert into image_consensus ({cols}) values ({vals})"),
-            consensus_row
-        )
-
-
-# ============================================================
-# SUBMIT ANNOTATION
-# ============================================================
-
 @app.post("/annotate")
 def submit_annotation(annotation: Annotation):
+    validate_answers(annotation.answers)
 
-    a = annotation.answers
-
-    cells_multi = a.get("cell_types_present", [])
-
-    row = {
-        "id": str(uuid.uuid4()),
-        "image_id": annotation.image_id,
+    data = load_data()
+    data.setdefault(annotation.image_id, []).append({
         "annotator_id": annotation.annotator_id,
+        "answers": annotation.answers
+    })
 
-        # Q1
-        "cells_present__B": "B cells are present" in cells_multi,
-        "cells_present__T": "T cells are present" in cells_multi,
-        "cells_present__Ki67": "Proliferating cells (Ki67+) are present" in cells_multi,
-
-        # Q2
-        "most_abundant__B": a.get("dominant_cell_population") == "B cells are the most abundant",
-        "most_abundant__T": a.get("dominant_cell_population") == "T cells are the most abundant",
-        "most_abundant__Ki67": a.get("dominant_cell_population") == "Proliferating cells (Ki67+) are the most abundant",
-        "most_abundant__similar": a.get("dominant_cell_population") == "Cell populations appear similar in abundance",
-        "most_abundant__few": a.get("dominant_cell_population") == "Very few cells are present overall",
-
-        # Q3
-        "density__high": a.get("cell_density") == "High density (cells are tightly packed and overlapping)",
-        "density__moderate": a.get("cell_density") == "Moderate density (cells are very close but individually distinguishable)",
-        "density__low": a.get("cell_density") == "Low density (cells are separated with visible background between them)",
-        "density__very_low": a.get("cell_density") == "Very low density (isolated cells with large dark background or staining noise)",
-
-        # Q4
-        "bt_separation__not_applicable": a.get("b_t_separation") == "Not applicable (only one cell type present)",
-        "bt_separation__not_separated": a.get("b_t_separation") == "Not separated (completely mixed, no distinct areas)",
-        "bt_separation__low": a.get("b_t_separation") == "Low separation (early area formation but mostly mixed)",
-        "bt_separation__moderate": a.get("b_t_separation") == "Moderate separation (distinct areas with some overlap)",
-        "bt_separation__high": a.get("b_t_separation") == "High separation (clearly separated areas with relatively sharp boundaries)",
-
-        # Q5
-        "t_ring__not_applicable": a.get("t_cell_ring") == "Not applicable (no T cells present)",
-        "t_ring__none": a.get("t_cell_ring") == "No ring present",
-        "t_ring__weak": a.get("t_cell_ring") == "Weak ring formation",
-        "t_ring__moderate": a.get("t_cell_ring") == "Moderate ring formation",
-        "t_ring__clear": a.get("t_cell_ring") == "Clear ring formation",
-
-        # Q6
-        "gc_present__yes": a.get("gc_like_structure") == "GC-like structure present",
-        "gc_present__no": a.get("gc_like_structure") == "No GC-like structure present",
-    }
-
-    cols = ", ".join(row.keys())
-    vals = ", ".join([f":{k}" for k in row.keys()])
-
-    with engine.begin() as conn:
-        conn.execute(
-            text(f"insert into annotations_raw ({cols}) values ({vals})"),
-            row
-        )
-
-    update_consensus(annotation.image_id)
-
+    save_data(data)
     return {"ok": True}
 
 
-# ============================================================
-# EXPORT RAW
-# ============================================================
+# -----------------------
+# Static mounts (שמים בסוף!)
+# -----------------------
+if os.path.isdir(IMAGES_DIR):
+    app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 
-@app.get("/admin/export/raw")
-def export_raw(token: str):
+if os.path.isdir(FRONTEND_DIR):
+    app.mount("/ui", StaticFiles(directory=FRONTEND_DIR, html=True), name="ui")
 
-    if token != "els-admin-shiraz":
-        raise HTTPException(status_code=403)
+@app.get("/images-list/{annotator_id}")
+def get_images_for_annotator(annotator_id: str):
+    # כל התמונות
+    if not os.path.exists(IMAGES_DIR):
+        return []
 
-    with engine.begin() as conn:
-        result = conn.execute(text("select * from annotations_raw"))
-        rows = result.fetchall()
-        columns = result.keys()
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(columns)
-    writer.writerows(rows)
-    output.seek(0)
-
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=annotations_raw.csv"}
+    all_images = sorted(
+        f for f in os.listdir(IMAGES_DIR)
+        if f.lower().endswith((".png", ".jpg", ".jpeg", ".tif", ".tiff"))
     )
 
+    data = load_data()
 
-# ============================================================
-# EXPORT CONSENSUS
-# ============================================================
+    # תמונות שכבר סומנו ע"י annotator
+    done = set()
+    for image_id, annotations in data.items():
+        for ann in annotations:
+            if ann["annotator_id"] == annotator_id:
+                done.add(image_id)
 
-@app.get("/admin/export/consensus")
-def export_consensus(token: str):
+    # מחזירים רק מה שנשאר
+    remaining = [img for img in all_images if img not in done]
+    return remaining
 
-    if token != "els-admin-shiraz":
-        raise HTTPException(status_code=403)
 
-    with engine.begin() as conn:
-        result = conn.execute(text("select * from image_consensus"))
-        rows = result.fetchall()
-        columns = result.keys()
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(columns)
-    writer.writerows(rows)
-    output.seek(0)
-
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=image_consensus.csv"}
-    )
