@@ -1,157 +1,163 @@
 <!doctype html>
 <html>
 <head>
-<meta charset="utf-8">
-<title>ELS Consensus Annotation</title>
+  <meta charset="utf-8">
+  <title>ELS Consensus Annotation</title>
 
-<style>
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  margin: 0;
-  background: #ffffff;
-}
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f5f7fa;
+      margin: 0;
+      padding: 0;
+    }
 
-.container {
-  width: 95%;
-  margin: auto;
-  padding: 30px;
-}
+    .container {
+      width: 95%;
+      margin: auto;
+      padding: 25px;
+    }
 
-/* ---------- LOGIN SCREEN ---------- */
+    h1 {
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
 
-#login-screen {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  height: 90vh;
-  text-align: center;
-}
+    .subtitle {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 25px;
+    }
 
-#login-screen h1 {
-  font-size: 28px;
-  margin-bottom: 8px;
-}
+    button {
+      font-size: 15px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+    }
 
-.subtitle {
-  color: #666;
-  font-size: 14px;
-  margin-bottom: 30px;
-}
+    #btnSubmit {
+      background-color: #1f6feb;
+      color: white;
+      width: 100%;
+      margin-top: 20px;
+    }
 
-.login-box input {
-  padding: 8px 10px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-}
+    #btnSubmit:hover {
+      background-color: #155ac9;
+    }
 
-.login-box button {
-  padding: 8px 16px;
-  border-radius: 8px;
-  border: none;
-  background: #1f6feb;
-  color: white;
-  cursor: pointer;
-  margin-left: 8px;
-}
+    .layout {
+      display: flex;
+      gap: 30px;
+    }
 
-/* ---------- MAIN SCREEN ---------- */
+    .image-panel {
+      flex: 1.4;
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
 
-#annotation-screen {
-  display: none;
-}
+    .image-panel img {
+      width: 100%;
+      border-radius: 8px;
+    }
 
-.layout {
-  display: flex;
-  gap: 30px;
-}
+    .annotation-panel {
+      flex: 1;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      max-height: 85vh;
+      overflow-y: auto;
+    }
 
-.image-panel {
-  flex: 1.4;
-  background: white;
-  padding: 15px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-}
+    .admin-section {
+      margin-top: 40px;
+      padding: 15px;
+      background: #f1f5f9;
+      border-radius: 8px;
+    }
 
-.image-panel img {
-  width: 100%;
-  border-radius: 8px;
-}
+    input[type="text"],
+    input[type="password"] {
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
 
-.annotation-panel {
-  flex: 1;
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  max-height: 85vh;
-  overflow-y: auto;
-}
+    /* ===== LOGIN SCREEN ===== */
 
-button {
-  cursor: pointer;
-}
+    #login-screen {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 90vh;
+      text-align: center;
+      background: white;
+    }
 
-#btnSubmit {
-  margin-top: 20px;
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: none;
-  background: #1f6feb;
-  color: white;
-  width: 100%;
-}
+    #annotation-screen {
+      display: none;
+    }
 
-.admin-section {
-  margin-top: 40px;
-}
-</style>
+  </style>
 </head>
 
 <body>
+
 <div class="container">
 
-<!-- ================= LOGIN ================= -->
-<div id="login-screen">
+  <!-- ================= LOGIN SCREEN ================= -->
+  <div id="login-screen">
 
-  <h1>ELS Consensus Annotation</h1>
-  <div class="subtitle">Blinded Human Structural Feature Encoding</div>
+    <h1>ELS Consensus Annotation</h1>
+    <div class="subtitle">Blinded Human Structural Feature Encoding</div>
 
-  <div class="login-box">
-    <label><b>Annotator ID:</b></label>
-    <input id="annotatorId" type="text">
-    <button id="btnResume">Resume</button>
-  </div>
-
-</div>
-
-
-<!-- ================= MAIN ================= -->
-<div id="annotation-screen">
-
-  <div class="layout">
-
-    <div class="image-panel">
-      <img id="elsImage" alt="ELS image">
-      <div id="imgCounter" style="margin-top:10px;"></div>
-    </div>
-
-    <div class="annotation-panel">
-      <div id="questions"></div>
-      <button id="btnSubmit">Submit & Next</button>
+    <div style="margin-top:30px;">
+      <b>Annotator ID:</b>
+      <input id="annotatorId" type="text" style="margin-left:10px;">
+      <button id="btnResume" style="margin-left:10px; background:#1f6feb; color:white;">
+        Resume
+      </button>
     </div>
 
   </div>
 
-  <div class="admin-section">
-    <h3>Admin</h3>
-    <input id="adminToken" type="password" placeholder="Admin token">
-    <button onclick="downloadCSV()">Download all annotations (CSV)</button>
+
+  <!-- ================= ANNOTATION SCREEN ================= -->
+  <div id="annotation-screen">
+
+    <div class="layout">
+
+      <div class="image-panel">
+        <img id="elsImage" alt="ELS image">
+        <div id="imgCounter" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="annotation-panel">
+        <div id="questions"></div>
+        <button id="btnSubmit">Submit & Next</button>
+      </div>
+
+    </div>
+
+    <div class="admin-section">
+      <h3>Admin</h3>
+      <input id="adminToken" type="password" placeholder="Admin token">
+      <button onclick="downloadCSV()">Download all annotations (CSV)</button>
+    </div>
+
   </div>
 
 </div>
 
 <script src="app.js"></script>
+
 </body>
 </html>
