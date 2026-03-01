@@ -27,43 +27,126 @@ async function fetchJSON(url, options = {}) {
 }
 
 // ===============================
-// LOAD IMAGES LIST
+// LOAD IMAGES FOR USER (RESUME BUILT-IN)
 // ===============================
 
-async function loadImages() {
-    images = await fetchJSON(`${API_BASE}/images-list`);
+async function loadImagesForUser() {
+    images = await fetchJSON(`${API_BASE}/images-list/${userId}`);
+    currentIndex = 0;
 }
 
 // ===============================
-// LOAD IMAGE TO UI
+// LOAD SCHEMA & BUILD QUESTIONS
+// ===============================
+
+async function loadSchema() {
+    const schema = await fetchJSON(`${API_BASE}/schema`);
+    const container = document.getElementById("questions-container");
+    container.innerHTML = "";
+
+    for (const [key, spec] of Object.entries(schema)) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "question-block";
+
+        const label = document.createElement("h4");
+        label.textContent = key;
+        wrapper.appendChild(label);
+
+        if (spec.type === "single") {
+            spec.options.forEach(opt => {
+                const radio = document.createElement("input");
+                radio.type = "radio";
+                radio.name = key;
+                radio.value = opt;
+
+                wrapper.appendChild(radio);
+                wrapper.appendChild(document.createTextNode(opt));
+                wrapper.appendChild(document.createElement("br"));
+            });
+        }
+
+        if (spec.type === "multi") {
+            spec.options.forEach(opt => {
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.name = key;
+                checkbox.value = opt;
+
+                wrapper.appendChild(checkbox);
+                wrapper.appendChild(document.createTextNode(opt));
+                wrapper.appendChild(document.createElement("br"));
+            });
+        }
+
+        container.appendChild(wrapper);
+    }
+}
+
+// ===============================
+// RENDER IMAGE
 // ===============================
 
 function renderImage() {
-    if (!images.length) return;
+    if (!images.length) {
+        alert("No more images to annotate.");
+        return;
+    }
 
     const imageName = images[currentIndex];
     const imgElement = document.getElementById("els-image");
-
     imgElement.src = `${API_BASE}/images/${imageName}`;
 }
 
 // ===============================
-// RESUME (SAFE)
+// COLLECT ANSWERS
 // ===============================
 
-async function resume(userId) {
-    try {
-        const data = await fetchJSON(`${API_BASE}/annotated/${userId}`);
+function collectAnswers() {
+    const answers = {};
 
-        if (data && data.last_index !== undefined) {
-            currentIndex = data.last_index;
+    document.querySelectorAll(".question-block").forEach(block => {
+        const key = block.querySelector("h4").textContent;
+        const inputs = block.querySelectorAll("input");
+
+        const selected = [];
+
+        inputs.forEach(input => {
+            if (input.checked) {
+                selected.push(input.value);
+            }
+        });
+
+        if (inputs[0].type === "radio") {
+            answers[key] = selected[0] || "";
+        } else {
+            answers[key] = selected;
         }
+    });
 
-        console.log("Resume successful");
-    } catch (err) {
-        console.log("No previous session found. Starting fresh.");
-        currentIndex = 0;
-    }
+    return answers;
+}
+
+// ===============================
+// SUBMIT
+// ===============================
+
+async function submitAndNext() {
+    const imageName = images[currentIndex];
+
+    const payload = {
+        image_id: imageName,
+        annotator_id: userId,
+        answers: collectAnswers()
+    };
+
+    await fetchJSON(`${API_BASE}/annotate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    currentIndex++;
+    renderImage();
 }
 
 // ===============================
@@ -71,26 +154,24 @@ async function resume(userId) {
 // ===============================
 
 async function startApp() {
-    try {
-        userId = document.getElementById("username").value.trim();
+    userId = document.getElementById("username").value.trim();
 
-        if (!userId) {
-            alert("Please enter a username.");
-            return;
-        }
-
-        await loadImages();
-        await resume(userId);
-
-        renderImage();
-    } catch (err) {
-        console.error("Initialization error:", err);
+    if (!userId) {
+        alert("Please enter a username.");
+        return;
     }
+
+    await loadImagesForUser();
+    await loadSchema();
+    renderImage();
 }
 
 // ===============================
-// EVENT LISTENERS
+// EVENTS
 // ===============================
 
 document.getElementById("start-btn")
     .addEventListener("click", startApp);
+
+document.getElementById("submit-btn")
+    .addEventListener("click", submitAndNext);
