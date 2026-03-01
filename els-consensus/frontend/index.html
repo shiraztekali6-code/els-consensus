@@ -156,20 +156,14 @@
       margin-bottom: 15px;
     }
 
-    /* ===== LOGIN SCREEN ===== */
-
-    #login-screen {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 90vh;
-      text-align: center;
-      background: #f5f7fa;
+    /* LOGIN MODE */
+    #main-wrapper {
+      display: none;
     }
 
-    #main-content {
-      display: none;
+    #login-wrapper {
+      text-align: center;
+      padding-top: 150px;
     }
   </style>
 </head>
@@ -177,46 +171,55 @@
 <body>
 <div class="container">
 
-  <!-- ===== LOGIN ===== -->
-  <div id="login-screen">
-    <h1>ELS Consensus Annotation</h1>
-    <div class="subtitle">Blinded Human Structural Feature Encoding</div>
+<!-- LOGIN SCREEN -->
+<div id="login-wrapper">
+  <h1>ELS Consensus Annotation</h1>
+  <div class="subtitle">Blinded Human Structural Feature Encoding</div>
 
-    <div class="top-bar" style="justify-content:center;">
-      <b>Annotator ID:</b>
-      <input id="annotatorId" type="text">
-      <button id="btnResume">Resume</button>
-    </div>
+  <div class="top-bar" style="justify-content:center;">
+    <b>Annotator ID:</b>
+    <input id="annotatorId" type="text">
+    <button id="btnResume">Resume</button>
   </div>
+</div>
 
-  <!-- ===== ORIGINAL PAGE (UNCHANGED) ===== -->
-  <div id="main-content">
+<!-- ORIGINAL CONTENT (UNCHANGED) -->
+<div id="main-wrapper">
 
-    <div id="error"></div>
+  <div id="error"></div>
 
-    <div class="layout">
+  <div class="layout">
 
-      <div class="image-panel">
-        <img id="elsImage" alt="ELS image">
-        <div id="imgCounter" style="margin-top:10px;"></div>
-      </div>
-
-      <div class="annotation-panel">
-        <div id="questions"></div>
-        <button id="btnSubmit">Submit & Next</button>
-      </div>
-
+    <div class="image-panel">
+      <img id="elsImage" alt="ELS image">
+      <div id="imgCounter" style="margin-top:10px;"></div>
     </div>
 
-    <div class="admin-section">
-      <h3>Admin</h3>
-      <input id="adminToken" type="password" placeholder="Admin token">
-      <button onclick="downloadCSV()">Download all annotations (CSV)</button>
+    <div class="annotation-panel">
+      <div id="questions"></div>
+      <button id="btnSubmit">Submit & Next</button>
     </div>
 
   </div>
+
+  <div class="admin-section">
+    <h3>Admin</h3>
+    <input id="adminToken" type="password" placeholder="Admin token">
+    <button onclick="downloadCSV()">Download all annotations (CSV)</button>
+  </div>
+
+</div>
 
 <script src="app.js"></script>
+
+<script>
+  // מעבר מסך בלי לגעת ב-app.js
+  document.getElementById("btnResume").addEventListener("click", function () {
+    document.getElementById("login-wrapper").style.display = "none";
+    document.getElementById("main-wrapper").style.display = "block";
+  });
+</script>
+
 </div>
 </body>
 </html>
