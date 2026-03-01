@@ -1,29 +1,69 @@
-// ===============================
-// CONFIG
-// ===============================
-
 const API_BASE = window.location.origin;
-
-// ===============================
-// STATE
-// ===============================
 
 let images = [];
 let currentIndex = 0;
-let userId = null;
+let annotatorId = null;
+let schema = null;
 
 // ===============================
 // HELPERS
 // ===============================
 
 async function fetchJSON(url, options = {}) {
-    const res = await fetch(url, options);
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(`${url} failed (${res.status})`);
+  return res.json();
+}
 
-    if (!res.ok) {
-        throw new Error(`${url} failed with ${res.status}`);
+// ===============================
+// LOAD SCHEMA
+// ===============================
+
+async function loadSchema() {
+  schema = await fetchJSON(`${API_BASE}/schema`);
+  buildQuestions();
+}
+
+function buildQuestions() {
+  const container = document.getElementById("questions");
+  container.innerHTML = "";
+
+  Object.entries(schema).forEach(([key, spec]) => {
+    const card = document.createElement("div");
+    card.className = "question-card";
+
+    const title = document.createElement("div");
+    title.className = "question-title";
+    title.textContent = key;
+    card.appendChild(title);
+
+    if (spec.description) {
+      const desc = document.createElement("div");
+      desc.className = "question-desc";
+      desc.textContent = spec.description;
+      card.appendChild(desc);
     }
 
-    return res.json();
+    const optionsRow = document.createElement("div");
+    optionsRow.className = "options-row";
+
+    spec.options.forEach(opt => {
+      const label = document.createElement("label");
+      label.className = "option-label";
+
+      const input = document.createElement("input");
+      input.type = spec.type === "multi" ? "checkbox" : "radio";
+      input.name = key;
+      input.value = opt;
+
+      label.appendChild(input);
+      label.appendChild(document.createTextNode(opt));
+      optionsRow.appendChild(label);
+    });
+
+    card.appendChild(optionsRow);
+    container.appendChild(card);
+  });
 }
 
 // ===============================
@@ -31,55 +71,9 @@ async function fetchJSON(url, options = {}) {
 // ===============================
 
 async function loadImagesForUser() {
-    images = await fetchJSON(`${API_BASE}/images-list/${userId}`);
-    currentIndex = 0;
-}
-
-// ===============================
-// LOAD SCHEMA & BUILD QUESTIONS
-// ===============================
-
-async function loadSchema() {
-    const schema = await fetchJSON(`${API_BASE}/schema`);
-    const container = document.getElementById("questions-container");
-    container.innerHTML = "";
-
-    for (const [key, spec] of Object.entries(schema)) {
-        const wrapper = document.createElement("div");
-        wrapper.className = "question-block";
-
-        const label = document.createElement("h4");
-        label.textContent = key;
-        wrapper.appendChild(label);
-
-        if (spec.type === "single") {
-            spec.options.forEach(opt => {
-                const radio = document.createElement("input");
-                radio.type = "radio";
-                radio.name = key;
-                radio.value = opt;
-
-                wrapper.appendChild(radio);
-                wrapper.appendChild(document.createTextNode(opt));
-                wrapper.appendChild(document.createElement("br"));
-            });
-        }
-
-        if (spec.type === "multi") {
-            spec.options.forEach(opt => {
-                const checkbox = document.createElement("input");
-                checkbox.type = "checkbox";
-                checkbox.name = key;
-                checkbox.value = opt;
-
-                wrapper.appendChild(checkbox);
-                wrapper.appendChild(document.createTextNode(opt));
-                wrapper.appendChild(document.createElement("br"));
-            });
-        }
-
-        container.appendChild(wrapper);
-    }
+  images = await fetchJSON(`${API_BASE}/images-list/${annotatorId}`);
+  currentIndex = 0;
+  renderImage();
 }
 
 // ===============================
@@ -87,14 +81,16 @@ async function loadSchema() {
 // ===============================
 
 function renderImage() {
-    if (!images.length) {
-        alert("No more images to annotate.");
-        return;
-    }
+  if (!images.length) {
+    document.getElementById("elsImage").src = "";
+    document.getElementById("imgCounter").innerText = "No more images to annotate.";
+    return;
+  }
 
-    const imageName = images[currentIndex];
-    const imgElement = document.getElementById("els-image");
-    imgElement.src = `${API_BASE}/images/${imageName}`;
+  const imageName = images[currentIndex];
+  document.getElementById("elsImage").src = `${API_BASE}/images/${imageName}`;
+  document.getElementById("imgCounter").innerText =
+    `Image ${currentIndex + 1} of ${images.length}`;
 }
 
 // ===============================
@@ -102,76 +98,68 @@ function renderImage() {
 // ===============================
 
 function collectAnswers() {
-    const answers = {};
+  const answers = {};
 
-    document.querySelectorAll(".question-block").forEach(block => {
-        const key = block.querySelector("h4").textContent;
-        const inputs = block.querySelectorAll("input");
+  Object.keys(schema).forEach(key => {
+    const inputs = document.querySelectorAll(`input[name="${key}"]`);
+    const selected = [];
 
-        const selected = [];
-
-        inputs.forEach(input => {
-            if (input.checked) {
-                selected.push(input.value);
-            }
-        });
-
-        if (inputs[0].type === "radio") {
-            answers[key] = selected[0] || "";
-        } else {
-            answers[key] = selected;
-        }
+    inputs.forEach(input => {
+      if (input.checked) selected.push(input.value);
     });
 
-    return answers;
+    if (schema[key].type === "single") {
+      answers[key] = selected[0] || "";
+    } else {
+      answers[key] = selected;
+    }
+  });
+
+  return answers;
 }
 
 // ===============================
 // SUBMIT
 // ===============================
 
-async function submitAndNext() {
-    const imageName = images[currentIndex];
+async function submitAnnotation() {
+  if (!images.length) return;
 
-    const payload = {
-        image_id: imageName,
-        annotator_id: userId,
-        answers: collectAnswers()
-    };
+  const payload = {
+    image_id: images[currentIndex],
+    annotator_id: annotatorId,
+    answers: collectAnswers()
+  };
 
-    await fetchJSON(`${API_BASE}/annotate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    });
+  await fetchJSON(`${API_BASE}/annotate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
 
-    currentIndex++;
-    renderImage();
+  currentIndex++;
+  renderImage();
 }
 
 // ===============================
-// START APP
+// ADMIN CSV
 // ===============================
 
-async function startApp() {
-    userId = document.getElementById("username").value.trim();
-
-    if (!userId) {
-        alert("Please enter a username.");
-        return;
-    }
-
-    await loadImagesForUser();
-    await loadSchema();
-    renderImage();
+function downloadCSV() {
+  const token = document.getElementById("adminToken").value;
+  window.open(`${API_BASE}/admin/export/annotations?token=${token}`, "_blank");
 }
 
 // ===============================
 // EVENTS
 // ===============================
 
-document.getElementById("start-btn")
-    .addEventListener("click", startApp);
+document.getElementById("btnResume").addEventListener("click", async () => {
+  annotatorId = document.getElementById("annotatorId").value.trim();
+  if (!annotatorId) return alert("Please enter Annotator ID.");
 
-document.getElementById("submit-btn")
-    .addEventListener("click", submitAndNext);
+  await loadSchema();
+  await loadImagesForUser();
+});
+
+document.getElementById("btnSubmit").addEventListener("click", submitAnnotation);
