@@ -3,9 +3,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Dict, List, Union
-import json
+import psycopg2
 import os
-import csv
 from datetime import datetime
 
 from config.schema import QUESTION_SCHEMA
@@ -16,24 +15,19 @@ app = FastAPI(title="ELS Consensus Annotation Server")
 app.mount("/images", StaticFiles(directory="images"), name="images")
 app.mount("/ui", StaticFiles(directory="frontend", html=True), name="frontend")
 
-DATA_PATH = "data/annotations.json"
 IMAGES_DIR = "images"
 
-
-# ---------- Utilities ----------
-def load_data():
-    if not os.path.exists(DATA_PATH):
-        return {}
-    with open(DATA_PATH, "r") as f:
-        return json.load(f)
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL not set")
 
 
-def save_data(data):
-    os.makedirs("data", exist_ok=True)
-    with open(DATA_PATH, "w") as f:
-        json.dump(data, f, indent=2)
+# ---------- DB ----------
+def get_connection():
+    return psycopg2.connect(DATABASE_URL)
 
 
+# ---------- Validation ----------
 def validate_answers(answers: dict):
     for q, spec in QUESTION_SCHEMA.items():
         if q not in answers:
@@ -79,55 +73,119 @@ def get_images_list():
 
 @app.get("/annotated/{annotator_id}")
 def get_annotated(annotator_id: str):
-    data = load_data()
-    done = []
-    for image_id, anns in data.items():
-        for ann in anns:
-            if ann["annotator_id"] == annotator_id:
-                done.append(image_id)
-                break
-    return sorted(done)
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT DISTINCT image_id
+        FROM annotations_raw
+        WHERE annotator_id = %s
+    """, (annotator_id,))
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return sorted([r[0] for r in rows])
 
 
+# ---------- Submit Annotation ----------
 @app.post("/annotate")
 def submit_annotation(annotation: Annotation):
     validate_answers(annotation.answers)
 
-    data = load_data()
-    data.setdefault(annotation.image_id, []).append({
-        "annotator_id": annotation.annotator_id,
-        "answers": annotation.answers,
-        "timestamp": datetime.utcnow().isoformat() + "Z"
-    })
-    save_data(data)
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # מביאים את כל שמות העמודות
+    cur.execute("""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'annotations_raw'
+    """)
+    columns = [c[0] for c in cur.fetchall()]
+
+    # בונים שורה מלאה
+    row = {}
+
+    for col in columns:
+        if col == "image_id":
+            row[col] = annotation.image_id
+        elif col == "annotator_id":
+            row[col] = annotation.annotator_id
+        elif col in ("id", "timestamp"):
+            continue
+        else:
+            row[col] = False
+
+    # ממלאים TRUE לפי הבחירות
+    for question_key, value in annotation.answers.items():
+        selected = value if isinstance(value, list) else [value]
+
+        for option in selected:
+            normalized = option.lower() \
+                               .replace(" ", "_") \
+                               .replace("+", "") \
+                               .replace("-", "_") \
+                               .replace("(", "") \
+                               .replace(")", "") \
+                               .replace("%", "") \
+                               .replace("/", "_")
+
+            col_name = f"{question_key}__{normalized}"
+
+            if col_name in row:
+                row[col_name] = True
+
+    insert_cols = list(row.keys())
+    insert_vals = [row[c] for c in insert_cols]
+
+    placeholders = ",".join(["%s"] * len(insert_vals))
+    col_string = ",".join(insert_cols)
+
+    cur.execute(
+        f"INSERT INTO annotations_raw ({col_string}) VALUES ({placeholders})",
+        insert_vals
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
     return {"ok": True}
 
 
-# ---------- Admin: Export CSV ----------
+# ---------- Admin Export ----------
 @app.get("/admin/export/annotations")
 def export_annotations(token: str):
     ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN")
     if ADMIN_TOKEN is None or token != ADMIN_TOKEN:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    data = load_data()
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT *
+        FROM annotations_raw
+    """)
+
+    columns = [desc[0] for desc in cur.description]
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
 
     def generate():
-        yield "image_id,annotator_id,question,answer\n"
-        for image_id, anns in data.items():
-            for ann in anns:
-                annotator = ann["annotator_id"]
-                for q, ans in ann["answers"].items():
-                    if isinstance(ans, list):
-                        for a in ans:
-                            yield f"{image_id},{annotator},{q},{a}\n"
-                    else:
-                        yield f"{image_id},{annotator},{q},{ans}\n"
+        yield ",".join(columns) + "\n"
+        for row in rows:
+            yield ",".join([str(x) if x is not None else "" for x in row]) + "\n"
 
     return StreamingResponse(
         generate(),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=annotations.csv"}
+        headers={"Content-Disposition": "attachment; filename=annotations_raw.csv"}
     )
 
 
