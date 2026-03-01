@@ -5,7 +5,6 @@ from pydantic import BaseModel
 from typing import Dict, List, Union
 import psycopg2
 import os
-from datetime import datetime
 
 from config.schema import QUESTION_SCHEMA
 
@@ -25,6 +24,53 @@ if not DATABASE_URL:
 # ---------- DB ----------
 def get_connection():
     return psycopg2.connect(DATABASE_URL)
+
+
+# ---------- Explicit Mapping (Schema → DB columns) ----------
+OPTION_TO_COLUMN = {
+
+    "cell_types_present": {
+        "B cells are present": "cells_present__b",
+        "T cells are present": "cells_present__t",
+        "Proliferating cells (Ki67+) are present": "cells_present__ki67",
+    },
+
+    "dominant_cell_population": {
+        "B cells are the most abundant": "most_abundant__b",
+        "T cells are the most abundant": "most_abundant__t",
+        "Proliferating cells (Ki67+) are the most abundant": "most_abundant__ki67",
+        "Cell populations appear similar in abundance": "most_abundant__similar",
+        "Very few cells are present overall": "most_abundant__few",
+    },
+
+    "cell_density": {
+        "High density (cells are tightly packed and overlapping)": "density__high",
+        "Moderate density (cells are very close but individually distinguishable)": "density__moderate",
+        "Low density (cells are separated with visible background between them)": "density__low",
+        "Very low density (isolated cells with large dark background or staining noise)": "density__very_low",
+    },
+
+    "b_t_separation": {
+        "Not applicable (only one cell type present)": "bt_separation__not_applicable",
+        "Not separated (completely mixed, no distinct areas)": "bt_separation__not_separated",
+        "Low separation (early area formation but mostly mixed)": "bt_separation__low",
+        "Moderate separation (distinct areas with some overlap)": "bt_separation__moderate",
+        "High separation (clearly separated areas with relatively sharp boundaries)": "bt_separation__high",
+    },
+
+    "t_cell_ring": {
+        "Not applicable (no T cells present)": "t_ring__not_applicable",
+        "No ring present": "t_ring__none",
+        "Weak ring formation": "t_ring__weak",
+        "Moderate ring formation": "t_ring__moderate",
+        "Clear ring formation": "t_ring__clear",
+    },
+
+    "gc_like_structure": {
+        "No GC-like structure present": "gc_present__no",
+        "GC-like structure present": "gc_present__yes",
+    }
+}
 
 
 # ---------- Validation ----------
@@ -78,12 +124,11 @@ def get_annotated(annotator_id: str):
 
     cur.execute("""
         SELECT DISTINCT image_id
-        FROM annotations_raw
+        FROM public.annotations_raw
         WHERE annotator_id = %s
     """, (annotator_id,))
 
     rows = cur.fetchall()
-
     cur.close()
     conn.close()
 
@@ -98,15 +143,15 @@ def submit_annotation(annotation: Annotation):
     conn = get_connection()
     cur = conn.cursor()
 
-    # מביאים את כל שמות העמודות
+    # בונים שורה מלאה עם False כברירת מחדל
     cur.execute("""
         SELECT column_name
         FROM information_schema.columns
         WHERE table_name = 'annotations_raw'
+        AND table_schema = 'public'
     """)
     columns = [c[0] for c in cur.fetchall()]
 
-    # בונים שורה מלאה
     row = {}
 
     for col in columns:
@@ -119,23 +164,13 @@ def submit_annotation(annotation: Annotation):
         else:
             row[col] = False
 
-    # ממלאים TRUE לפי הבחירות
+    # ממלאים TRUE לפי mapping מפורש
     for question_key, value in annotation.answers.items():
         selected = value if isinstance(value, list) else [value]
 
         for option in selected:
-            normalized = option.lower() \
-                               .replace(" ", "_") \
-                               .replace("+", "") \
-                               .replace("-", "_") \
-                               .replace("(", "") \
-                               .replace(")", "") \
-                               .replace("%", "") \
-                               .replace("/", "_")
-
-            col_name = f"{question_key}__{normalized}"
-
-            if col_name in row:
+            col_name = OPTION_TO_COLUMN.get(question_key, {}).get(option)
+            if col_name and col_name in row:
                 row[col_name] = True
 
     insert_cols = list(row.keys())
@@ -145,7 +180,7 @@ def submit_annotation(annotation: Annotation):
     col_string = ",".join(insert_cols)
 
     cur.execute(
-        f"INSERT INTO annotations_raw ({col_string}) VALUES ({placeholders})",
+        f"INSERT INTO public.annotations_raw ({col_string}) VALUES ({placeholders})",
         insert_vals
     )
 
@@ -166,11 +201,7 @@ def export_annotations(token: str):
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("""
-        SELECT *
-        FROM annotations_raw
-    """)
-
+    cur.execute("SELECT * FROM public.annotations_raw")
     columns = [desc[0] for desc in cur.description]
     rows = cur.fetchall()
 
