@@ -1,3 +1,4 @@
+console.log("NEW VERSION LOADED");
 const API_BASE = window.location.origin;
 
 let images = [];
