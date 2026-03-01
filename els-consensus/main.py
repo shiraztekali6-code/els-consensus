@@ -184,6 +184,12 @@ def submit_annotation(annotation: Annotation):
         insert_vals
     )
 
+    # 🔥 כאן מחושב consensus אוטומטית
+    cur.execute(
+        "SELECT public.recalculate_consensus(%s)",
+        (annotation.image_id,)
+    )
+
     conn.commit()
     cur.close()
     conn.close()
