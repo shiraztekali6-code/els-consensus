@@ -1,225 +1,207 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>ELS Consensus Annotation</title>
+<meta charset="utf-8">
+<title>ELS Consensus Annotation</title>
 
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #f5f7fa;
-      margin: 0;
-      padding: 0;
-    }
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: #f5f7fa;
+  margin: 0;
+  padding: 0;
+}
 
-    .container {
-      width: 95%;
-      margin: auto;
-      padding: 25px;
-    }
+.container {
+  width: 95%;
+  margin: auto;
+  padding: 25px;
+}
 
-    h1 {
-      font-weight: 600;
-      margin-bottom: 5px;
-    }
+h1 {
+  font-weight: 600;
+  margin-bottom: 5px;
+}
 
-    .subtitle {
-      color: #666;
-      font-size: 14px;
-      margin-bottom: 25px;
-    }
+.subtitle {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 25px;
+}
 
-    .top-bar {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      margin-bottom: 20px;
-    }
+.layout {
+  display: flex;
+  gap: 30px;
+}
 
-    input[type="text"],
-    input[type="password"] {
-      padding: 6px 8px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
+.image-panel {
+  flex: 1.4;
+  background: white;
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
 
-    button {
-      font-size: 15px;
-      padding: 8px 14px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-    }
+.image-panel img {
+  width: 100%;
+  border-radius: 8px;
+}
 
-    #btnSubmit {
-      background-color: #1f6feb;
-      color: white;
-      width: 100%;
-      margin-top: 20px;
-    }
+/* ===== TEXT BELOW IMAGE ===== */
 
-    #btnSubmit:hover {
-      background-color: #155ac9;
-    }
+.image-footer {
+  margin-top: 14px;
+}
 
-    #btnResume {
-      background-color: #e2e8f0;
-    }
+.legend-box {
+  background: #e5e7eb;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
 
-    .layout {
-      display: flex;
-      gap: 30px;
-    }
+#imgCounter {
+  font-size: 14px;
+  color: #444;
+}
 
-    .image-panel {
-      flex: 1.4;
-      background: white;
-      padding: 15px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
+/* ===== QUESTIONS ===== */
 
-    .image-panel img {
-      width: 100%;
-      border-radius: 8px;
-    }
+.annotation-panel {
+  flex: 1;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  max-height: 85vh;
+  overflow-y: auto;
+}
 
-    .annotation-panel {
-      flex: 1;
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-      max-height: 85vh;
-      overflow-y: auto;
-    }
+.question-card {
+  border: 2px solid #dbeafe;
+  padding: 18px;
+  margin-bottom: 24px;
+  border-radius: 14px;
+  background: #f8fafc;
+}
 
-    .legend-box {
-      border: 1px solid #e5e7eb;
-      padding: 12px;
-      margin-bottom: 20px;
-      border-radius: 8px;
-      background: #fafafa;
-    }
+.question-title {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
 
-    .question-card {
-      border: 1px solid #e5e7eb;
-      padding: 14px;
-      margin-bottom: 18px;
-      border-radius: 10px;
-      background: white;
-      transition: 0.2s ease;
-    }
+.question-desc {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 14px;
+}
 
-    .question-card:hover {
-      background: #f9fbff;
-    }
+.options-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
-    .question-title {
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
+.option-label {
+  background: #e5e7eb;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: 0.15s ease;
+}
 
-    .question-desc {
-      font-size: 13px;
-      color: #666;
-      margin-bottom: 10px;
-    }
+.option-label:hover {
+  background: #d1d5db;
+}
 
-    .options-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
+.option-label input {
+  margin-right: 8px;
+}
 
-    .option-label {
-      background: #f1f5f9;
-      padding: 6px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
+button {
+  font-size: 15px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
 
-    .option-label input {
-      margin-right: 4px;
-    }
+#btnSubmit {
+  background-color: #1f6feb;
+  color: white;
+  width: 100%;
+  margin-top: 20px;
+}
 
-    .admin-section {
-      margin-top: 40px;
-      padding: 15px;
-      background: #f1f5f9;
-      border-radius: 8px;
-    }
+#btnSubmit:hover {
+  background-color: #155ac9;
+}
 
-    #error {
-      color: red;
-      font-weight: bold;
-      margin-bottom: 15px;
-    }
+/* ===== ADMIN ===== */
 
-    /* LOGIN MODE */
-    #main-wrapper {
-      display: none;
-    }
+.admin-section {
+  margin-top: 40px;
+  padding: 15px;
+  background: #f1f5f9;
+  border-radius: 8px;
+}
 
-    #login-wrapper {
-      text-align: center;
-      padding-top: 150px;
-    }
-  </style>
+input[type="password"] {
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+#error {
+  color: red;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+</style>
 </head>
 
 <body>
 <div class="container">
 
-<!-- LOGIN SCREEN -->
-<div id="login-wrapper">
-  <h1>ELS Consensus Annotation</h1>
-  <div class="subtitle">Blinded Human Structural Feature Encoding</div>
+<h1>ELS Consensus Annotation</h1>
+<div class="subtitle">Blinded Human Structural Feature Encoding</div>
 
-  <div class="top-bar" style="justify-content:center;">
-    <b>Annotator ID:</b>
-    <input id="annotatorId" type="text">
-    <button id="btnResume">Resume</button>
+<div id="error"></div>
+
+<div class="layout">
+
+  <!-- IMAGE SIDE -->
+  <div class="image-panel">
+    <img id="elsImage" alt="ELS image">
+
+    <div class="image-footer">
+      <div class="legend-box">
+        Color legend: Yellow = B cells, Red = T cells, Green = Proliferating cells (Ki67+)
+      </div>
+      <div id="imgCounter"></div>
+    </div>
   </div>
+
+  <!-- QUESTIONS SIDE -->
+  <div class="annotation-panel">
+    <div id="questions"></div>
+    <button id="btnSubmit">Submit & Next</button>
+  </div>
+
 </div>
 
-<!-- ORIGINAL CONTENT (UNCHANGED) -->
-<div id="main-wrapper">
-
-  <div id="error"></div>
-
-  <div class="layout">
-
-    <div class="image-panel">
-      <img id="elsImage" alt="ELS image">
-      <div id="imgCounter" style="margin-top:10px;"></div>
-    </div>
-
-    <div class="annotation-panel">
-      <div id="questions"></div>
-      <button id="btnSubmit">Submit & Next</button>
-    </div>
-
-  </div>
-
-  <div class="admin-section">
-    <h3>Admin</h3>
-    <input id="adminToken" type="password" placeholder="Admin token">
-    <button onclick="downloadCSV()">Download all annotations (CSV)</button>
-  </div>
-
+<div class="admin-section">
+  <h3>Admin</h3>
+  <input id="adminToken" type="password" placeholder="Admin token">
+  <button onclick="downloadCSV()">Download all annotations (CSV)</button>
 </div>
 
 <script src="app.js"></script>
-
-<script>
-  // מעבר מסך בלי לגעת ב-app.js
-  document.getElementById("btnResume").addEventListener("click", function () {
-    document.getElementById("login-wrapper").style.display = "none";
-    document.getElementById("main-wrapper").style.display = "block";
-  });
-</script>
-
 </div>
 </body>
 </html>
