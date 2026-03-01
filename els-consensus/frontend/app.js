@@ -1,44 +1,45 @@
-console.log("NEW VERSION LOADED");
-const API_BASE = window.location.origin;
-
-let images = [];
-let currentIndex = 0;
-let annotatorId = null;
 let schema = null;
+let images = [];
+let doneSet = new Set();
+let idx = 0;
 
-async function fetchJSON(url, options = {}) {
-  const res = await fetch(url, options);
-  if (!res.ok) throw new Error(`${url} failed (${res.status})`);
-  return res.json();
+const $ = id => document.getElementById(id);
+
+async function fetchJSON(url) {
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error(`${url} failed`);
+  return r.json();
 }
 
-async function loadSchema() {
-  schema = await fetchJSON(`${API_BASE}/schema`);
-  buildQuestions();
+function imageUrl(name) {
+  return `/images/${encodeURIComponent(name)}?v=${Date.now()}`;
 }
 
 function buildQuestions() {
-  const container = document.getElementById("questions");
-  container.innerHTML = "";
+  $("questions").innerHTML = `
+    <div class="legend-box">
+      <b>Color Legend</b><br>
+      Yellow = B cells<br>
+      Red = T cells<br>
+      Green = Proliferating cells (Ki67+)
+    </div>
+  `;
 
-  Object.entries(schema).forEach(([key, spec]) => {
-    const card = document.createElement("div");
-    card.className = "question-card";
+  for (const [q, spec] of Object.entries(schema)) {
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "question-card";
 
     const title = document.createElement("div");
     title.className = "question-title";
-    title.textContent = key;
-    card.appendChild(title);
+    title.innerText = q;
 
-    if (spec.description) {
-      const desc = document.createElement("div");
-      desc.className = "question-desc";
-      desc.textContent = spec.description;
-      card.appendChild(desc);
-    }
+    const desc = document.createElement("div");
+    desc.className = "question-desc";
+    desc.innerText = spec.description || "";
 
-    const optionsRow = document.createElement("div");
-    optionsRow.className = "options-row";
+    const options = document.createElement("div");
+    options.className = "options-row";
 
     spec.options.forEach(opt => {
       const label = document.createElement("label");
@@ -46,110 +47,120 @@ function buildQuestions() {
 
       const input = document.createElement("input");
       input.type = spec.type === "multi" ? "checkbox" : "radio";
-      input.name = key;
+      input.name = q;
       input.value = opt;
+      input.dataset.q = q;
 
       label.appendChild(input);
-      label.appendChild(document.createTextNode(opt));
-      optionsRow.appendChild(label);
+      label.append(" " + opt);
+
+      options.appendChild(label);
     });
 
-    card.appendChild(optionsRow);
-    container.appendChild(card);
-  });
-}
+    wrapper.appendChild(title);
+    if (spec.description) wrapper.appendChild(desc);
+    wrapper.appendChild(options);
 
-async function loadImagesForUser() {
-  images = await fetchJSON(`${API_BASE}/images-list/${annotatorId}`);
-  currentIndex = 0;
-  renderImage();
-}
-
-function renderImage() {
-  const imgEl = document.getElementById("elsImage");
-  const counter = document.getElementById("imgCounter");
-
-  if (!images.length) {
-    imgEl.src = "";
-    counter.innerText = "No more images to annotate.";
-    return;
+    $("questions").appendChild(wrapper);
   }
-
-  const imageName = images[currentIndex];
-  imgEl.src = `${API_BASE}/images/${imageName}`;
-  counter.innerText = `Image ${currentIndex + 1} of ${images.length}`;
 }
 
 function collectAnswers() {
-  const answers = {};
-
-  Object.keys(schema).forEach(key => {
-    const inputs = document.querySelectorAll(`input[name="${key}"]`);
-    const selected = [];
-
-    inputs.forEach(input => {
-      if (input.checked) selected.push(input.value);
-    });
-
-    if (schema[key].type === "single") {
-      answers[key] = selected[0] || "";
+  const a = {};
+  for (const [q, spec] of Object.entries(schema)) {
+    if (spec.type === "multi") {
+      a[q] = Array.from(document.querySelectorAll(`input[data-q="${q}"]:checked`)).map(x => x.value);
     } else {
-      answers[key] = selected;
+      const v = document.querySelector(`input[data-q="${q}"]:checked`);
+      a[q] = v ? v.value : "";
     }
-  });
-
-  return answers;
+  }
+  return a;
 }
 
-async function submitAnnotation() {
-  if (!images.length) return;
-
-  const payload = {
-    image_id: images[currentIndex],
-    annotator_id: annotatorId,
-    answers: collectAnswers()
-  };
-
-  await fetchJSON(`${API_BASE}/annotate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+function allAnswered(ans) {
+  let ok = true;
+  document.querySelectorAll(".question-card").forEach(card => {
+    card.style.border = "1px solid #e5e7eb";
   });
 
-  currentIndex++;
-  renderImage();
+  for (const [q, spec] of Object.entries(schema)) {
+    if (spec.type === "multi" && ans[q].length === 0) ok = false;
+    if (spec.type !== "multi" && !ans[q]) ok = false;
+
+    if (!ans[q] || (Array.isArray(ans[q]) && ans[q].length === 0)) {
+      document.querySelectorAll(".question-card").forEach(card => {
+        if (card.querySelector(`input[data-q="${q}"]`)) {
+          card.style.border = "2px solid #e11d48";
+        }
+      });
+    }
+  }
+  return ok;
+}
+
+async function resume() {
+  const annotator = $("annotatorId").value.trim();
+  if (!annotator) return alert("Annotator ID required");
+
+  localStorage.setItem("els.annotator", annotator);
+
+  const done = await fetchJSON(`/annotated/${annotator}`);
+  doneSet = new Set(done);
+
+  idx = images.findIndex(x => !doneSet.has(x));
+  if (idx === -1) {
+    $("elsImage").removeAttribute("src");
+    $("imgCounter").innerText = "All images annotated 🎉";
+    return;
+  }
+  render();
+}
+
+function render() {
+  $("elsImage").src = imageUrl(images[idx]);
+  $("imgCounter").innerText = `Image ${idx + 1} / ${images.length}`;
+  document.querySelectorAll("#questions input").forEach(i => i.checked = false);
+}
+
+async function submit() {
+  const annotator = $("annotatorId").value.trim();
+  if (!annotator) return alert("Annotator ID required");
+
+  const answers = collectAnswers();
+  if (!allAnswered(answers)) return;
+
+  await fetch("/annotate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      image_id: images[idx],
+      annotator_id: annotator,
+      answers
+    })
+  });
+
+  doneSet.add(images[idx]);
+  await resume();
 }
 
 function downloadCSV() {
-  const token = document.getElementById("adminToken").value;
-  if (!token) {
-    alert("Enter admin token.");
-    return;
-  }
-  window.open(`${API_BASE}/admin/export/annotations?token=${token}`, "_blank");
+  const t = $("adminToken").value;
+  if (!t) return alert("Admin token required");
+  window.open(`/admin/export/annotations?token=${encodeURIComponent(t)}`, "_blank");
 }
 
-document.addEventListener("DOMContentLoaded", function () {
+$("btnResume").onclick = resume;
+$("btnSubmit").onclick = submit;
 
-  const resumeBtn = document.getElementById("btnResume");
-  const submitBtn = document.getElementById("btnSubmit");
+(async () => {
+  schema = await fetchJSON("/schema");
+  images = await fetchJSON("/images-list");
+  buildQuestions();
 
-  if (resumeBtn) {
-    resumeBtn.addEventListener("click", async () => {
-      annotatorId = document.getElementById("annotatorId").value.trim();
-      if (!annotatorId) {
-        alert("Please enter Annotator ID.");
-        return;
-      }
-      await loadSchema();
-      await loadImagesForUser();
-    });
+  const last = localStorage.getItem("els.annotator");
+  if (last) {
+    $("annotatorId").value = last;
+    await resume();
   }
-
-  if (submitBtn) {
-    submitBtn.addEventListener("click", async () => {
-      await submitAnnotation();
-    });
-  }
-
-});
+})();
