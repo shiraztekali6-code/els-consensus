@@ -1,166 +1,162 @@
-let schema = null;
+const API_BASE = window.location.origin;
+
 let images = [];
-let doneSet = new Set();
-let idx = 0;
+let currentIndex = 0;
+let annotatorId = null;
 
-const $ = id => document.getElementById(id);
 
-async function fetchJSON(url) {
-  const r = await fetch(url, { cache: "no-store" });
-  if (!r.ok) throw new Error(`${url} failed`);
-  return r.json();
+// ---------- Fetch Helper ----------
+async function fetchJSON(url, options = {}) {
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(`Error ${res.status}`);
+  return res.json();
 }
 
-function imageUrl(name) {
-  return `/images/${encodeURIComponent(name)}?v=${Date.now()}`;
+
+// ---------- Load Schema ----------
+async function loadSchema() {
+  const schema = await fetchJSON(`${API_BASE}/schema`);
+  renderQuestions(schema);
 }
 
-function buildQuestions() {
-  $("questions").innerHTML = `
-    <div class="legend-box">
-      <b>Color Legend</b><br>
-      Yellow = B cells<br>
-      Red = T cells<br>
-      Green = Proliferating cells (Ki67+)
-    </div>
-  `;
 
-  for (const [q, spec] of Object.entries(schema)) {
+// ---------- Load Images ----------
+async function loadImages() {
+  images = await fetchJSON(`${API_BASE}/images-list`);
+}
 
-    const wrapper = document.createElement("div");
-    wrapper.className = "question-card";
+
+// ---------- Resume ----------
+async function resume(userId) {
+  const done = await fetchJSON(`${API_BASE}/annotated/${userId}`);
+  currentIndex = done.length;
+}
+
+
+// ---------- Render Image ----------
+function renderImage() {
+  if (!images.length || currentIndex >= images.length) return;
+
+  const imageName = images[currentIndex];
+  document.getElementById("elsImage").src = `${API_BASE}/images/${imageName}`;
+  document.getElementById("imgCounter").innerText =
+    `Image ${currentIndex + 1} of ${images.length}`;
+}
+
+
+// ---------- Render Questions ----------
+function renderQuestions(schema) {
+  const container = document.getElementById("questions");
+  container.innerHTML = "";
+
+  for (const key in schema) {
+    const q = schema[key];
+
+    const card = document.createElement("div");
+    card.style.marginBottom = "20px";
 
     const title = document.createElement("div");
-    title.className = "question-title";
-    title.innerText = q;
+    title.innerHTML = `<b>${key}</b>`;
+    card.appendChild(title);
 
-    const desc = document.createElement("div");
-    desc.className = "question-desc";
-    desc.innerText = spec.description || "";
+    if (q.description) {
+      const desc = document.createElement("div");
+      desc.style.fontSize = "13px";
+      desc.style.color = "#666";
+      desc.innerText = q.description;
+      card.appendChild(desc);
+    }
 
-    const options = document.createElement("div");
-    options.className = "options-row";
-
-    spec.options.forEach(opt => {
+    q.options.forEach(option => {
       const label = document.createElement("label");
-      label.className = "option-label";
+      label.style.display = "block";
 
       const input = document.createElement("input");
-      input.type = spec.type === "multi" ? "checkbox" : "radio";
-      input.name = q;
-      input.value = opt;
-      input.dataset.q = q;
+      input.type = q.type === "multi" ? "checkbox" : "radio";
+      input.name = key;
+      input.value = option;
 
       label.appendChild(input);
-      label.append(" " + opt);
-
-      options.appendChild(label);
+      label.appendChild(document.createTextNode(" " + option));
+      card.appendChild(label);
     });
 
-    wrapper.appendChild(title);
-    if (spec.description) wrapper.appendChild(desc);
-    wrapper.appendChild(options);
-
-    $("questions").appendChild(wrapper);
+    container.appendChild(card);
   }
 }
 
-function collectAnswers() {
-  const a = {};
-  for (const [q, spec] of Object.entries(schema)) {
-    if (spec.type === "multi") {
-      a[q] = Array.from(document.querySelectorAll(`input[data-q="${q}"]:checked`)).map(x => x.value);
+
+// ---------- Collect Answers ----------
+function collectAnswers(schema) {
+  const answers = {};
+
+  for (const key in schema) {
+    const inputs = document.querySelectorAll(`[name="${key}"]`);
+    const selected = [];
+
+    inputs.forEach(input => {
+      if (input.checked) selected.push(input.value);
+    });
+
+    if (schema[key].type === "single") {
+      answers[key] = selected[0];
     } else {
-      const v = document.querySelector(`input[data-q="${q}"]:checked`);
-      a[q] = v ? v.value : "";
+      answers[key] = selected;
     }
   }
-  return a;
+
+  return answers;
 }
 
-function allAnswered(ans) {
-  let ok = true;
-  document.querySelectorAll(".question-card").forEach(card => {
-    card.style.border = "1px solid #e5e7eb";
-  });
 
-  for (const [q, spec] of Object.entries(schema)) {
-    if (spec.type === "multi" && ans[q].length === 0) ok = false;
-    if (spec.type !== "multi" && !ans[q]) ok = false;
+// ---------- Submit ----------
+async function submitAnnotation() {
+  const schema = await fetchJSON(`${API_BASE}/schema`);
+  const answers = collectAnswers(schema);
 
-    if (!ans[q] || (Array.isArray(ans[q]) && ans[q].length === 0)) {
-      document.querySelectorAll(".question-card").forEach(card => {
-        if (card.querySelector(`input[data-q="${q}"]`)) {
-          card.style.border = "2px solid #e11d48";
-        }
-      });
-    }
-  }
-  return ok;
-}
-
-async function resume() {
-  const annotator = $("annotatorId").value.trim();
-  if (!annotator) return alert("Annotator ID required");
-
-  localStorage.setItem("els.annotator", annotator);
-
-  const done = await fetchJSON(`/annotated/${annotator}`);
-  doneSet = new Set(done);
-
-  idx = images.findIndex(x => !doneSet.has(x));
-  if (idx === -1) {
-    $("elsImage").removeAttribute("src");
-    $("imgCounter").innerText = "All images annotated 🎉";
-    return;
-  }
-  render();
-}
-
-function render() {
-  $("elsImage").src = imageUrl(images[idx]);
-  $("imgCounter").innerText = `Image ${idx + 1} / ${images.length}`;
-  document.querySelectorAll("#questions input").forEach(i => i.checked = false);
-}
-
-async function submit() {
-  const annotator = $("annotatorId").value.trim();
-  if (!annotator) return alert("Annotator ID required");
-
-  const answers = collectAnswers();
-  if (!allAnswered(answers)) return;
-
-  await fetch("/annotate", {
+  await fetch(`${API_BASE}/annotate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      image_id: images[idx],
-      annotator_id: annotator,
-      answers
+      image_id: images[currentIndex],
+      annotator_id: annotatorId,
+      answers: answers
     })
   });
 
-  doneSet.add(images[idx]);
-  await resume();
+  currentIndex++;
+  renderImage();
 }
 
+
+// ---------- Download CSV ----------
 function downloadCSV() {
-  const t = $("adminToken").value;
-  if (!t) return alert("Admin token required");
-  window.open(`/admin/export/annotations?token=${encodeURIComponent(t)}`, "_blank");
+  const token = document.getElementById("adminToken").value;
+  window.location.href = `${API_BASE}/admin/export/annotations?token=${token}`;
 }
 
-$("btnResume").onclick = resume;
-$("btnSubmit").onclick = submit;
 
-(async () => {
-  schema = await fetchJSON("/schema");
-  images = await fetchJSON("/images-list");
-  buildQuestions();
+// ---------- Login Button ----------
+document.getElementById("btnResume").addEventListener("click", async () => {
 
-  const last = localStorage.getItem("els.annotator");
-  if (last) {
-    $("annotatorId").value = last;
-    await resume();
+  const id = document.getElementById("annotatorId").value.trim();
+  if (!id) {
+    alert("Please enter Annotator ID");
+    return;
   }
-})();
+
+  annotatorId = id;
+
+  await loadImages();
+  await loadSchema();
+  await resume(id);
+  renderImage();
+
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("annotation-screen").style.display = "block";
+});
+
+
+// ---------- Submit Button ----------
+document.getElementById("btnSubmit")
+  .addEventListener("click", submitAnnotation);
