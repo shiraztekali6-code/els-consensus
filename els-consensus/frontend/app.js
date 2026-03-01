@@ -1,3 +1,7 @@
+// ===================================
+// CONFIG
+// ===================================
+
 const API_BASE = window.location.origin;
 
 let images = [];
@@ -5,19 +9,23 @@ let currentIndex = 0;
 let annotatorId = null;
 let schema = null;
 
-// ===============================
-// HELPERS
-// ===============================
+
+// ===================================
+// UTIL
+// ===================================
 
 async function fetchJSON(url, options = {}) {
   const res = await fetch(url, options);
-  if (!res.ok) throw new Error(`${url} failed (${res.status})`);
+  if (!res.ok) {
+    throw new Error(`${url} failed (${res.status})`);
+  }
   return res.json();
 }
 
-// ===============================
+
+// ===================================
 // LOAD SCHEMA
-// ===============================
+// ===================================
 
 async function loadSchema() {
   schema = await fetchJSON(`${API_BASE}/schema`);
@@ -66,9 +74,10 @@ function buildQuestions() {
   });
 }
 
-// ===============================
-// LOAD IMAGES FOR USER (RESUME BUILT-IN)
-// ===============================
+
+// ===================================
+// LOAD IMAGES FOR USER
+// ===================================
 
 async function loadImagesForUser() {
   images = await fetchJSON(`${API_BASE}/images-list/${annotatorId}`);
@@ -76,26 +85,30 @@ async function loadImagesForUser() {
   renderImage();
 }
 
-// ===============================
+
+// ===================================
 // RENDER IMAGE
-// ===============================
+// ===================================
 
 function renderImage() {
+  const imgEl = document.getElementById("elsImage");
+  const counter = document.getElementById("imgCounter");
+
   if (!images.length) {
-    document.getElementById("elsImage").src = "";
-    document.getElementById("imgCounter").innerText = "No more images to annotate.";
+    imgEl.src = "";
+    counter.innerText = "No more images to annotate.";
     return;
   }
 
   const imageName = images[currentIndex];
-  document.getElementById("elsImage").src = `${API_BASE}/images/${imageName}`;
-  document.getElementById("imgCounter").innerText =
-    `Image ${currentIndex + 1} of ${images.length}`;
+  imgEl.src = `${API_BASE}/images/${imageName}`;
+  counter.innerText = `Image ${currentIndex + 1} of ${images.length}`;
 }
 
-// ===============================
+
+// ===================================
 // COLLECT ANSWERS
-// ===============================
+// ===================================
 
 function collectAnswers() {
   const answers = {};
@@ -118,9 +131,10 @@ function collectAnswers() {
   return answers;
 }
 
-// ===============================
+
+// ===================================
 // SUBMIT
-// ===============================
+// ===================================
 
 async function submitAnnotation() {
   if (!images.length) return;
@@ -141,25 +155,55 @@ async function submitAnnotation() {
   renderImage();
 }
 
-// ===============================
-// ADMIN CSV
-// ===============================
+
+// ===================================
+// ADMIN DOWNLOAD (SAFE EVEN IF BACKEND NOT READY)
+// ===================================
 
 function downloadCSV() {
   const token = document.getElementById("adminToken").value;
+  if (!token) {
+    alert("Enter admin token.");
+    return;
+  }
+
   window.open(`${API_BASE}/admin/export/annotations?token=${token}`, "_blank");
 }
 
-// ===============================
-// EVENTS
-// ===============================
 
-document.getElementById("btnResume").addEventListener("click", async () => {
-  annotatorId = document.getElementById("annotatorId").value.trim();
-  if (!annotatorId) return alert("Please enter Annotator ID.");
+// ===================================
+// EVENTS (SAFE)
+// ===================================
 
-  await loadSchema();
-  await loadImagesForUser();
+document.addEventListener("DOMContentLoaded", function () {
+
+  const resumeBtn = document.getElementById("btnResume");
+  const submitBtn = document.getElementById("btnSubmit");
+
+  resumeBtn?.addEventListener("click", async () => {
+    annotatorId = document.getElementById("annotatorId").value.trim();
+
+    if (!annotatorId) {
+      alert("Please enter Annotator ID.");
+      return;
+    }
+
+    try {
+      await loadSchema();
+      await loadImagesForUser();
+    } catch (err) {
+      console.error(err);
+      alert("Initialization failed. Check console.");
+    }
+  });
+
+  submitBtn?.addEventListener("click", async () => {
+    try {
+      await submitAnnotation();
+    } catch (err) {
+      console.error(err);
+      alert("Submit failed. Check console.");
+    }
+  });
+
 });
-
-document.getElementById("btnSubmit").addEventListener("click", submitAnnotation);
