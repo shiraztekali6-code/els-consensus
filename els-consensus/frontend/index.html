@@ -155,16 +155,54 @@
       font-weight: bold;
       margin-bottom: 15px;
     }
+
+    /* ===== LOGIN SCREEN ===== */
+
+    #login-screen {
+      position: fixed;
+      inset: 0;
+      background: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      text-align: center;
+    }
+
+    #login-screen .login-box {
+      margin-top: 30px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
   </style>
 </head>
 
 <body>
+
+<!-- LOGIN OVERLAY -->
+<div id="login-screen">
+  <h1>ELS Consensus Annotation</h1>
+  <div class="subtitle">Blinded Human Structural Feature Encoding</div>
+
+  <div class="login-box">
+    <b>Annotator ID:</b>
+    <input id="loginAnnotatorId" type="text">
+    <button id="loginEnter">Enter</button>
+  </div>
+</div>
+
+
 <div class="container">
 
 <h1>ELS Consensus Annotation</h1>
 <div class="subtitle">Blinded Human Structural Feature Encoding</div>
 
-<div class="top-bar">
+<!-- השארנו את top-bar כדי ש-app.js יעבוד,
+     אבל נסתיר אותו תמיד -->
+<div class="top-bar" style="display:none;">
   <b>Annotator ID:</b>
   <input id="annotatorId" type="text">
   <button id="btnResume">Resume</button>
@@ -193,6 +231,26 @@
 </div>
 
 <script src="app.js"></script>
+
+<script>
+document.getElementById("loginEnter").addEventListener("click", function () {
+  const id = document.getElementById("loginAnnotatorId").value.trim();
+  if (!id) {
+    alert("Please enter Annotator ID");
+    return;
+  }
+
+  // מזין את ה-ID לשדה המקורי
+  document.getElementById("annotatorId").value = id;
+
+  // מפעיל את מנגנון ה-Resume המקורי
+  document.getElementById("btnResume").click();
+
+  // מסתיר את מסך הכניסה
+  document.getElementById("login-screen").style.display = "none";
+});
+</script>
+
 </div>
 </body>
 </html>
