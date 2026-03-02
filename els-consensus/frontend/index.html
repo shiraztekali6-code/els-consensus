@@ -33,7 +33,7 @@ h1 {
 }
 
 .top-bar {
-  display: flex;
+  display: none; /* ← מוסתר אך נשאר קיים */
   gap: 10px;
   align-items: center;
   margin-bottom: 20px;
@@ -65,10 +65,6 @@ button {
   background-color: #155ac9;
 }
 
-#btnResume {
-  background-color: #e2e8f0;
-}
-
 .layout {
   display: flex;
   gap: 30px;
@@ -95,14 +91,6 @@ button {
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
   max-height: 85vh;
   overflow-y: auto;
-}
-
-.legend-box {
-  border: 1px solid #e5e7eb;
-  padding: 12px;
-  margin-bottom: 20px;
-  border-radius: 8px;
-  background: #fafafa;
 }
 
 .question-card {
@@ -219,13 +207,6 @@ button {
   background: #155ac9;
 }
 
-#annotatorDisplay {
-  background: #f1f5f9;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-weight: 600;
-}
-
 </style>
 </head>
 
@@ -240,7 +221,7 @@ button {
     <div class="login-card" id="loginCard">
       <h1>ELSCAN</h1>
       <div class="subtitle" style="color:#aaa;">
-        Ectopic Lymphoid Structure Consensus Annotation Network<br>
+        Ectopic Lymphoid Structure Consensus Annotation Network
       </div>
 
       <div class="login-box">
