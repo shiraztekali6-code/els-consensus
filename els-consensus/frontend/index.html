@@ -356,7 +356,6 @@
       document.addEventListener("DOMContentLoaded", () => {
         let schema = null;
         let images = [];
-        let doneSet = new Set();
         let idx = 0;
 
         const annotatorInput = document.getElementById("annotatorId");
@@ -383,15 +382,6 @@
           gc_like_structure:
             "Is there a GC-like structure? (GC-like = a clearly localized cluster of proliferating cells (green, Ki67+) situated within or tightly surrounded by a B- or T-cell-rich area (yellow or red), not diffusely distributed across the entire ELS)"
         };
-
-        async function fetchJSON(url) {
-          const response = await fetch(url, { cache: "no-store" });
-          if (!response.ok) {
-            const payload = await response.text();
-            throw new Error(payload || `${url} failed: ${response.status}`);
-          }
-          return response.json();
-        }
 
         function setStatus(message, kind = "") {
           statusEl.classList.remove("error", "ok");
@@ -487,36 +477,6 @@
           return { answers, missingSingles };
         }
 
-        async function resumeProgress() {
-          const annotatorId = annotatorInput.value.trim();
-          if (!annotatorId) {
-            setStatus("Enter annotator ID first", "error");
-            return;
-          }
-
-          try {
-            localStorage.setItem("els.annotator", annotatorId);
-            const done = await fetchJSON(`/annotated/${encodeURIComponent(annotatorId)}`);
-            doneSet = new Set(done);
-
-            idx = images.findIndex((name) => !doneSet.has(name));
-            if (idx === -1) {
-              imageEl.style.display = "none";
-              emptyImageMsgEl.style.display = "block";
-              emptyImageMsgEl.textContent = "All images annotated";
-              counterEl.textContent = `Completed ${images.length}/${images.length}`;
-              submitBtn.disabled = true;
-              setStatus("All images annotated", "ok");
-              return;
-            }
-
-            renderImage();
-            setStatus(`Resumed from image ${idx + 1}`, "ok");
-          } catch (error) {
-            setStatus(error.message || "Failed to resume progress", "error");
-          }
-        }
-
         function clearForm() {
           questionsEl.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach((x) => {
             x.checked = false;
@@ -527,31 +487,33 @@
           try {
             setStatus("Loading schema and images...");
 
-            const [schemaData, imagesData] = await Promise.all([
-              fetchJSON("/schema"),
-              fetchJSON("/images-list"),
+            const [schemaResp, imagesResp] = await Promise.all([
+              fetch("/schema", { cache: "no-store" }),
+              fetch("/images-list", { cache: "no-store" }),
             ]);
-            schema = schemaData;
-            images = imagesData;
+
+            if (!schemaResp.ok) throw new Error(`Failed loading schema: ${schemaResp.status}`);
+            if (!imagesResp.ok) throw new Error(`Failed loading images: ${imagesResp.status}`);
+
+            schema = await schemaResp.json();
+            images = await imagesResp.json();
 
             renderQuestions();
-
-            const lastAnnotator = localStorage.getItem("els.annotator");
-            if (lastAnnotator) {
-              annotatorInput.value = lastAnnotator;
-              await resumeProgress();
-            } else {
-              renderImage();
-              setStatus("Ready");
-            }
+            renderImage();
+            setStatus("Ready");
           } catch (error) {
             setStatus(error.message || "Initialization failed", "error");
             submitBtn.disabled = true;
           }
         }
 
-        enterBtn.addEventListener("click", async () => {
-          await resumeProgress();
+        enterBtn.addEventListener("click", () => {
+          const id = annotatorInput.value.trim();
+          if (!id) {
+            setStatus("Enter annotator ID first", "error");
+            return;
+          }
+          setStatus("Annotator ID set", "ok");
         });
 
         downloadBtn.addEventListener("click", async () => {
@@ -606,9 +568,16 @@
               throw new Error(payload || `Submit failed: ${response.status}`);
             }
 
+            idx += 1;
             clearForm();
-            doneSet.add(images[idx]);
-            await resumeProgress();
+            renderImage();
+
+            if (idx >= images.length) {
+              setStatus("All annotations submitted", "ok");
+              return;
+            }
+
+            setStatus("Saved", "ok");
           } catch (error) {
             setStatus(error.message || "Submit failed", "error");
             submitBtn.disabled = false;
