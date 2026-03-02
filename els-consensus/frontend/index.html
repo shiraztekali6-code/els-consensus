@@ -224,7 +224,7 @@ button {
 
 <body>
 
-<!-- ================= LOGIN SCREEN ================= -->
+<!-- LOGIN SCREEN -->
 
 <div id="login-screen">
   <canvas id="elsCanvas"></canvas>
@@ -245,7 +245,7 @@ button {
   </div>
 </div>
 
-<!-- ================= MAIN APPLICATION ================= -->
+<!-- MAIN APP -->
 
 <div class="container">
 
@@ -302,7 +302,6 @@ document.addEventListener("DOMContentLoaded", function () {
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight;
   }
-
   window.addEventListener("resize", resize);
   resize();
 
@@ -315,32 +314,39 @@ document.addEventListener("DOMContentLoaded", function () {
   function createCells() {
     const cx = width / 2;
     const cy = height / 2;
-    const gcShift = randomPoint(20);
+    const totalCells = 950;
+    const gcShift = randomPoint(25);
 
-    for (let i = 0; i < 320; i++) {
+    for (let i = 0; i < totalCells; i++) {
+
       let type;
-      if (i < 150) type = "B";
-      else if (i < 280) type = "T";
+      if (i < totalCells * 0.45) type = "B";
+      else if (i < totalCells * 0.85) type = "T";
       else type = "K";
 
       let target;
-      if (type === "B") target = randomPoint(80);
+      if (type === "B") target = randomPoint(70);
 
       if (type === "T") {
-        const inner = 60;
-        const outer = 150;
+        const inner = 50;
+        const outer = 140;
         const theta = Math.random() * Math.PI * 2;
         const r = inner + Math.random() * (outer - inner);
         target = { x: r * Math.cos(theta), y: r * Math.sin(theta) };
       }
 
       if (type === "K") {
-        const local = randomPoint(25);
+        const local = randomPoint(30);
         target = { x: gcShift.x + local.x, y: gcShift.y + local.y };
       }
 
+      const depth = Math.random();
+
       cells.push({
         type,
+        depth,
+        size: 1.5 + depth * 2.2,
+        alpha: 0.35 + depth * 0.65,
         x: Math.random() * width,
         y: Math.random() * height,
         targetX: cx + target.x,
@@ -350,30 +356,47 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function drawCell(c) {
-    c.x += (c.targetX - c.x) * 0.04;
-    c.y += (c.targetY - c.y) * 0.04;
+
+    const speed = 0.03 + c.depth * 0.03;
+
+    c.x += (c.targetX - c.x) * speed;
+    c.y += (c.targetY - c.y) * speed;
+
+    ctx.globalAlpha = c.alpha;
+
+    ctx.shadowBlur = 8 + c.depth * 12;
+    ctx.shadowColor =
+      c.type === "B" ? "#FFD84D" :
+      c.type === "T" ? "#FF4D4D" :
+                       "#39FF88";
 
     ctx.beginPath();
-    ctx.arc(c.x, c.y, 2.5, 0, Math.PI * 2);
+    ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2);
 
     if (c.type === "B") ctx.fillStyle = "#FFD84D";
     if (c.type === "T") ctx.fillStyle = "#FF4D4D";
     if (c.type === "K") ctx.fillStyle = "#39FF88";
 
     ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
   }
 
   function animate(timestamp) {
+
     if (!startTime) startTime = timestamp;
     const elapsed = timestamp - startTime;
 
     ctx.fillStyle = "#0b0f14";
     ctx.fillRect(0, 0, width, height);
+
     cells.forEach(drawCell);
 
     if (elapsed < buildDuration) {
       requestAnimationFrame(animate);
-    } else if (elapsed < buildDuration + fadeDuration) {
+    }
+    else if (elapsed < buildDuration + fadeDuration) {
 
       if (!fadeStarted) {
         fadeStarted = true;
@@ -384,8 +407,8 @@ document.addEventListener("DOMContentLoaded", function () {
       canvas.style.opacity = 1 - fadeProgress;
 
       requestAnimationFrame(animate);
-
-    } else {
+    }
+    else {
       canvas.style.opacity = 0;
     }
   }
