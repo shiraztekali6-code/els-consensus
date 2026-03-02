@@ -4,9 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ELSCAN</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Playfair+Display:wght@500&display=swap" rel="stylesheet" />
+
   <style>
     :root {
       --bg: #f7f8fb;
@@ -161,6 +163,7 @@
       }
     }
 
+    /* Login screen (Code 1 style) */
     #login-screen {
       position: fixed;
       inset: 0;
@@ -206,9 +209,11 @@
     #login-screen .b {
       background: radial-gradient(circle at 30% 30%, #fff6b5 0%, #ffd84d 60%, #b89d20 100%);
     }
+
     #login-screen .t {
       background: radial-gradient(circle at 30% 30%, #ffb5b5 0%, #ff4d4d 60%, #8f1f1f 100%);
     }
+
     #login-screen .k {
       background: radial-gradient(circle at 30% 30%, #b5ffd6 0%, #4dff88 60%, #1c8f4d 100%);
     }
@@ -345,103 +350,380 @@
     </section>
   </main>
 
-  <script src="/app.js"></script>
+  <!-- App logic inline (no dependency on external app.js path) -->
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const els = document.getElementById("els");
-      const loginScreen = document.getElementById("login-screen");
-      const loginInput = document.getElementById("loginAnnotatorId");
-      const loginEnter = document.getElementById("loginEnter");
-      const appInput = document.getElementById("annotatorId");
-      const appEnterBtn = document.getElementById("enterBtn");
+    (() => {
+      document.addEventListener("DOMContentLoaded", () => {
+        let schema = null;
+        let images = [];
+        let idx = 0;
 
-      function createClusterAnimation() {
-        const size = els.offsetWidth;
-        if (!size) return;
-        const center = size / 2;
+        const annotatorInput = document.getElementById("annotatorId");
+        const submitBtn = document.getElementById("submitBtn");
+        const enterBtn = document.getElementById("enterBtn");
+        const downloadBtn = document.getElementById("downloadBtn");
+        const questionsEl = document.getElementById("questions");
+        const imageEl = document.getElementById("elsImage");
+        const counterEl = document.getElementById("imgCounter");
+        const statusEl = document.getElementById("status");
+        const emptyImageMsgEl = document.getElementById("emptyImageMsg");
 
-        function cluster(n, r1, r2, type) {
-          for (let i = 0; i < n; i += 1) {
-            const angle = Math.random() * Math.PI * 2;
-            const r = r1 + Math.random() * (r2 - r1);
-            const x = center + r * Math.cos(angle);
-            const y = center + r * Math.sin(angle);
-
-            const depthRand = Math.random();
-            const depthClass = depthRand < 0.33 ? "depth-back" : depthRand < 0.66 ? "depth-mid" : "depth-front";
-            const scale = depthClass === "depth-front" ? 1.15 : depthClass === "depth-mid" ? 0.9 : 0.7;
-
-            const cell = document.createElement("div");
-            cell.className = `cell ${type} ${depthClass}`;
-            cell.style.width = `${6 * scale}px`;
-            cell.style.height = `${6 * scale}px`;
-            cell.style.transform = `translate(${Math.random() * size}px,${Math.random() * size}px)`;
-            els.appendChild(cell);
-
-            setTimeout(() => {
-              cell.style.transform = `translate(${x}px,${y}px) scale(${scale})`;
-            }, 200);
-          }
-        }
-
-        cluster(200, 0, size * 0.18, "b");
-        cluster(260, size * 0.18, size * 0.32, "t");
-        cluster(180, size * 0.32, size * 0.45, "k");
-
-        setTimeout(() => {
-          els.style.opacity = "0";
-          els.style.transform = "translate(-50%,-50%) scale(1.08)";
-        }, 3500);
-
-        setTimeout(() => {
-          document.getElementById("loginContent").style.opacity = "1";
-        }, 4500);
-
-        setTimeout(() => {
-          const title = document.getElementById("loginTitle");
-          title.style.opacity = "1";
-          title.style.transform = "translateY(0)";
-        }, 4800);
-
-        setTimeout(() => {
-          const subtitle = document.getElementById("loginSubtitle");
-          subtitle.style.opacity = "1";
-          subtitle.style.transform = "translateY(0)";
-        }, 5400);
-
-        setTimeout(() => {
-          const panel = document.getElementById("loginPanel");
-          panel.style.opacity = "1";
-          panel.style.transform = "translateY(0)";
-          loginInput.focus();
-        }, 6000);
-      }
-
-      function submitLogin() {
-        const id = loginInput.value.trim();
-        if (!id) {
-          loginInput.focus();
+        if (!annotatorInput || !submitBtn || !enterBtn || !downloadBtn || !questionsEl || !imageEl || !counterEl || !statusEl || !emptyImageMsgEl) {
+          console.error("Missing required DOM elements for app initialization.");
           return;
         }
 
-        appInput.value = id;
-        appEnterBtn.click();
-        loginScreen.style.opacity = "0";
-        setTimeout(() => {
-          loginScreen.style.display = "none";
-        }, 500);
-      }
+        function humanizeKey(key) {
+          return key.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        }
 
-      loginEnter.addEventListener("click", submitLogin);
-      loginInput.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          submitLogin();
+        function setStatus(message, kind = "") {
+          statusEl.classList.remove("error", "ok");
+          if (kind) statusEl.classList.add(kind);
+          statusEl.textContent = message;
+        }
+
+        function renderQuestions() {
+          questionsEl.innerHTML = "";
+
+          for (const [key, config] of Object.entries(schema || {})) {
+            const fieldset = document.createElement("fieldset");
+            fieldset.className = "question";
+            fieldset.dataset.key = key;
+            fieldset.dataset.type = config.type;
+
+            const legend = document.createElement("legend");
+            legend.textContent = humanizeKey(key);
+            fieldset.appendChild(legend);
+
+            if (config.description) {
+              const desc = document.createElement("p");
+              desc.className = "desc";
+              desc.textContent = config.description;
+              fieldset.appendChild(desc);
+            }
+
+            (config.options || []).forEach((option, optionIndex) => {
+              const id = `q_${key}_${optionIndex}`;
+              const label = document.createElement("label");
+              label.className = "option";
+              label.setAttribute("for", id);
+
+              const input = document.createElement("input");
+              input.id = id;
+              input.name = `q_${key}`;
+              input.value = option;
+              input.type = config.type === "multi" ? "checkbox" : "radio";
+
+              const text = document.createElement("span");
+              text.textContent = option;
+
+              label.appendChild(input);
+              label.appendChild(text);
+              fieldset.appendChild(label);
+            });
+
+            questionsEl.appendChild(fieldset);
+          }
+        }
+
+        function renderImage() {
+          if (!images.length) {
+            imageEl.style.display = "none";
+            emptyImageMsgEl.style.display = "block";
+            emptyImageMsgEl.textContent = "No image loaded";
+            counterEl.textContent = "No images found in /images";
+            submitBtn.disabled = true;
+            return;
+          }
+
+          if (idx >= images.length) {
+            imageEl.style.display = "none";
+            emptyImageMsgEl.style.display = "block";
+            emptyImageMsgEl.textContent = "All images annotated";
+            counterEl.textContent = `Completed ${images.length}/${images.length}`;
+            submitBtn.disabled = true;
+            return;
+          }
+
+          const name = images[idx];
+          imageEl.src = `/images/${encodeURIComponent(name)}`;
+          imageEl.style.display = "block";
+          emptyImageMsgEl.style.display = "none";
+          counterEl.textContent = `Image ${idx + 1}/${images.length}: ${name}`;
+          submitBtn.disabled = false;
+        }
+
+        function collectAnswers() {
+          const answers = {};
+          const missingSingles = [];
+
+          document.querySelectorAll("fieldset.question").forEach((fieldset) => {
+            const key = fieldset.dataset.key;
+            const type = fieldset.dataset.type;
+
+            if (type === "single") {
+              const selected = fieldset.querySelector('input[type="radio"]:checked');
+              if (selected) answers[key] = selected.value;
+              else missingSingles.push(key);
+              return;
+            }
+
+            if (type === "multi") {
+              const selected = Array.from(fieldset.querySelectorAll('input[type="checkbox"]:checked')).map((x) => x.value);
+              answers[key] = selected;
+            }
+          });
+
+          return { answers, missingSingles };
+        }
+
+        function clearForm() {
+          questionsEl.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach((x) => {
+            x.checked = false;
+          });
+        }
+
+        async function initializeApp() {
+          try {
+            setStatus("Loading schema and images...");
+
+            const [schemaResp, imagesResp] = await Promise.all([
+              fetch("/api/schema", { cache: "no-store" }),
+              fetch("/api/images", { cache: "no-store" }),
+            ]);
+
+            if (!schemaResp.ok) throw new Error(`Failed loading schema: ${schemaResp.status}`);
+            if (!imagesResp.ok) throw new Error(`Failed loading images: ${imagesResp.status}`);
+
+            schema = await schemaResp.json();
+            images = await imagesResp.json();
+
+            renderQuestions();
+            renderImage();
+            setStatus("Ready");
+          } catch (error) {
+            setStatus(error.message || "Initialization failed", "error");
+            submitBtn.disabled = true;
+          }
+        }
+
+        enterBtn.addEventListener("click", () => {
+          const id = annotatorInput.value.trim();
+          if (!id) {
+            setStatus("Enter annotator ID first", "error");
+            return;
+          }
+          setStatus("Annotator ID set", "ok");
+        });
+
+        async function downloadCsv(url, filename, token) {
+          const response = await fetch(url, {
+            headers: { "X-Admin-Token": token },
+          });
+
+          if (!response.ok) {
+            const payload = await response.text();
+            throw new Error(payload || `Download failed: ${response.status}`);
+          }
+
+          const blob = await response.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = objectUrl;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(objectUrl);
+        }
+
+        downloadBtn.addEventListener("click", async () => {
+          const token = annotatorInput.value.trim();
+          if (!token) {
+            setStatus("Enter admin token first", "error");
+            return;
+          }
+
+          setStatus("Preparing exports...");
+
+          try {
+            await Promise.all([
+              downloadCsv("/api/admin/export/raw", "annotations_raw.csv", token),
+              downloadCsv("/api/admin/export/consensus", "image_consensus.csv", token),
+            ]);
+            setStatus("CSV files downloaded", "ok");
+          } catch (error) {
+            setStatus(error.message || "Export failed", "error");
+          }
+        });
+
+        submitBtn.addEventListener("click", async () => {
+          if (!images.length || idx >= images.length) {
+            setStatus("No images left to annotate", "error");
+            return;
+          }
+
+          const annotatorId = annotatorInput.value.trim();
+          if (!annotatorId) {
+            setStatus("Annotator ID is required", "error");
+            return;
+          }
+
+          const { answers, missingSingles } = collectAnswers();
+          if (missingSingles.length) {
+            setStatus(`Complete required single-choice questions: ${missingSingles.join(", ")}`, "error");
+            return;
+          }
+
+          submitBtn.disabled = true;
+          setStatus("Submitting...");
+
+          try {
+            const response = await fetch("/api/annotate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                image_id: images[idx],
+                annotator_id: annotatorId,
+                answers,
+              }),
+            });
+
+            if (!response.ok) {
+              const payload = await response.text();
+              throw new Error(payload || `Submit failed: ${response.status}`);
+            }
+
+            idx += 1;
+            clearForm();
+            renderImage();
+
+            if (idx >= images.length) {
+              setStatus("All annotations submitted", "ok");
+              return;
+            }
+
+            setStatus("Saved", "ok");
+          } catch (error) {
+            setStatus(error.message || "Submit failed", "error");
+            submitBtn.disabled = false;
+            return;
+          }
+
+          if (idx < images.length) submitBtn.disabled = false;
+        });
+
+        initializeApp();
+      });
+    })();
+  </script>
+
+  <!-- Login animation + bridge to app input -->
+  <script>
+    (() => {
+      document.addEventListener("DOMContentLoaded", () => {
+        try {
+          const els = document.getElementById("els");
+          const loginScreen = document.getElementById("login-screen");
+          const loginInput = document.getElementById("loginAnnotatorId");
+          const loginEnter = document.getElementById("loginEnter");
+          const appInput = document.getElementById("annotatorId");
+          const appEnterBtn = document.getElementById("enterBtn");
+          const loginContent = document.getElementById("loginContent");
+          const loginTitle = document.getElementById("loginTitle");
+          const loginSubtitle = document.getElementById("loginSubtitle");
+          const loginPanel = document.getElementById("loginPanel");
+
+          if (!els || !loginScreen || !loginInput || !loginEnter || !appInput || !appEnterBtn || !loginContent || !loginTitle || !loginSubtitle || !loginPanel) {
+            return;
+          }
+
+          const size = els.offsetWidth;
+          const center = size / 2;
+
+          function cluster(n, r1, r2, type) {
+            for (let i = 0; i < n; i += 1) {
+              const angle = Math.random() * Math.PI * 2;
+              const r = r1 + Math.random() * (r2 - r1);
+
+              const x = center + r * Math.cos(angle);
+              const y = center + r * Math.sin(angle);
+
+              const depthRand = Math.random();
+              const depthClass = depthRand < 0.33 ? "depth-back" : depthRand < 0.66 ? "depth-mid" : "depth-front";
+
+              const scale = depthClass === "depth-front" ? 1.15 : depthClass === "depth-mid" ? 0.9 : 0.7;
+
+              const d = document.createElement("div");
+              d.className = `cell ${type} ${depthClass}`;
+              d.style.width = `${6 * scale}px`;
+              d.style.height = `${6 * scale}px`;
+              d.style.transform = `translate(${Math.random() * size}px,${Math.random() * size}px)`;
+
+              els.appendChild(d);
+
+              setTimeout(() => {
+                d.style.transform = `translate(${x}px,${y}px) scale(${scale})`;
+              }, 200);
+            }
+          }
+
+          cluster(200, 0, size * 0.18, "b");
+          cluster(260, size * 0.18, size * 0.32, "t");
+          cluster(180, size * 0.32, size * 0.45, "k");
+
+          setTimeout(() => {
+            els.style.opacity = "0";
+            els.style.transform = "translate(-50%,-50%) scale(1.08)";
+          }, 3500);
+
+          setTimeout(() => { loginContent.style.opacity = "1"; }, 4500);
+          setTimeout(() => {
+            loginTitle.style.opacity = "1";
+            loginTitle.style.transform = "translateY(0)";
+          }, 4800);
+
+          setTimeout(() => {
+            loginSubtitle.style.opacity = "1";
+            loginSubtitle.style.transform = "translateY(0)";
+          }, 5400);
+
+          setTimeout(() => {
+            loginPanel.style.opacity = "1";
+            loginPanel.style.transform = "translateY(0)";
+            loginInput.focus();
+          }, 6000);
+
+          function closeLoginScreen() {
+            loginScreen.style.opacity = "0";
+            setTimeout(() => { loginScreen.style.display = "none"; }, 500);
+          }
+
+          function submitLogin() {
+            const id = loginInput.value.trim();
+            if (!id) {
+              loginInput.focus();
+              return;
+            }
+
+            appInput.value = id;
+            appEnterBtn.click();
+            closeLoginScreen();
+          }
+
+          loginEnter.addEventListener("click", submitLogin);
+          loginInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              submitLogin();
+            }
+          });
+        } catch (error) {
+          console.error("Login screen initialization failed:", error);
         }
       });
-
-      requestAnimationFrame(createClusterAnimation);
-    });
+    })();
   </script>
 </body>
 </html>
