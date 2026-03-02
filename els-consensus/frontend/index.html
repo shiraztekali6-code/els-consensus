@@ -1,133 +1,198 @@
-<script>
-document.addEventListener("DOMContentLoaded", function () {
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ELS Consensus Annotation</title>
 
-  const canvas = document.getElementById("elsCanvas");
-  const ctx = canvas.getContext("2d");
-  const loginCard = document.getElementById("loginCard");
-  const loginScreen = document.getElementById("login-screen");
-
-  let width, height;
-  let cells = [];
-  let startTime = null;
-  const duration = 8000; // נשאר כמו שרצית
-
-  function resize() {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
-  }
-  window.addEventListener("resize", resize);
-  resize();
-
-  function randomPoint(radius) {
-    const theta = Math.random() * Math.PI * 2;
-    const r = Math.sqrt(Math.random()) * radius;
-    return { x: r * Math.cos(theta), y: r * Math.sin(theta) };
-  }
-
-  function createCells() {
-    cells = []; // בטיחותי
-    const cx = width / 2;
-    const cy = height / 2;
-    const gcShift = randomPoint(20);
-
-    for (let i = 0; i < 320; i++) {
-
-      let type;
-      if (i < 150) type = "B";
-      else if (i < 280) type = "T";
-      else type = "K";
-
-      let target;
-
-      if (type === "B") {
-        target = randomPoint(80);
-      }
-
-      if (type === "T") {
-        const inner = 60;
-        const outer = 150;
-        const theta = Math.random() * Math.PI * 2;
-        const r = inner + Math.random() * (outer - inner);
-        target = { x: r * Math.cos(theta), y: r * Math.sin(theta) };
-      }
-
-      if (type === "K") {
-        const local = randomPoint(25);
-        target = { x: gcShift.x + local.x, y: gcShift.y + local.y };
-      }
-
-      cells.push({
-        type,
-        x: Math.random() * width,
-        y: Math.random() * height,
-        targetX: cx + target.x,
-        targetY: cy + target.y
-      });
-    }
-  }
-
-  function drawCell(c, progress) {
-
-    // האצה קלה בהתכנסות
-    c.x += (c.targetX - c.x) * 0.07;
-    c.y += (c.targetY - c.y) * 0.07;
-
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, 2.5, 0, Math.PI * 2);
-
-    if (c.type === "B") ctx.fillStyle = "#FFD84D";
-    if (c.type === "T") ctx.fillStyle = "#FF4D4D";
-
-    if (c.type === "K") {
-      const pulse = 1 + Math.sin(progress * 10) * 0.2;
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, 2.5 * pulse, 0, Math.PI * 2);
-      ctx.fillStyle = "#39FF88";
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f5f7fa;
+      margin: 0;
+      padding: 0;
     }
 
-    ctx.fill();
-  }
-
-  function animate(timestamp) {
-
-    if (!startTime) startTime = timestamp;
-
-    const elapsed = timestamp - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-
-    ctx.fillStyle = "#0b0f14";
-    ctx.fillRect(0, 0, width, height);
-
-    cells.forEach(c => drawCell(c, progress));
-
-    // הכותרת עולה לפני סוף האנימציה
-    if (progress > 0.85) {
-      loginCard.style.opacity = 1;
+    .container {
+      width: 95%;
+      margin: auto;
+      padding: 25px;
     }
 
-    if (progress < 1) {
-      requestAnimationFrame(animate);
+    h1 {
+      font-weight: 600;
+      margin-bottom: 5px;
     }
-  }
 
-  if (!sessionStorage.getItem("elsIntroShown")) {
-    createCells();
-    requestAnimationFrame(animate);
-    sessionStorage.setItem("elsIntroShown", "true");
-  } else {
-    ctx.fillStyle = "#0b0f14";
-    ctx.fillRect(0, 0, width, height);
-    loginCard.style.opacity = 1;
-  }
+    .subtitle {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 25px;
+    }
 
-  document.getElementById("loginEnter").addEventListener("click", function () {
-    const id = document.getElementById("loginAnnotatorId").value.trim();
-    if (!id) return;
+    .top-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 20px;
+    }
 
-    document.getElementById("annotatorId").value = id;
-    document.getElementById("btnResume").click();
-    loginScreen.style.display = "none";
-  });
+    input[type="text"],
+    input[type="password"] {
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
 
-});
-</script>
+    button {
+      font-size: 15px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+    }
+
+    #btnSubmit {
+      background-color: #1f6feb;
+      color: white;
+      width: 100%;
+      margin-top: 20px;
+    }
+
+    #btnSubmit:hover {
+      background-color: #155ac9;
+    }
+
+    #btnResume {
+      background-color: #e2e8f0;
+    }
+
+    .layout {
+      display: flex;
+      gap: 30px;
+    }
+
+    .image-panel {
+      flex: 1.4;
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    .image-panel img {
+      width: 100%;
+      border-radius: 8px;
+    }
+
+    .annotation-panel {
+      flex: 1;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    .legend-box {
+      border: 1px solid #e5e7eb;
+      padding: 12px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      background: #fafafa;
+    }
+
+    .question-card {
+      border: 1px solid #e5e7eb;
+      padding: 14px;
+      margin-bottom: 18px;
+      border-radius: 10px;
+      background: white;
+      transition: 0.2s ease;
+    }
+
+    .question-card:hover {
+      background: #f9fbff;
+    }
+
+    .question-title {
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .question-desc {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 10px;
+    }
+
+    .options-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .option-label {
+      background: #f1f5f9;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .option-label input {
+      margin-right: 4px;
+    }
+
+    .admin-section {
+      margin-top: 40px;
+      padding: 15px;
+      background: #f1f5f9;
+      border-radius: 8px;
+    }
+
+    #error {
+      color: red;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+
+<body>
+<div class="container">
+
+<h1>ELS Consensus Annotation</h1>
+<div class="subtitle">Blinded Human Structural Feature Encoding</div>
+
+<div class="top-bar">
+  <b>Annotator ID:</b>
+  <input id="annotatorId" type="text">
+  <button id="btnResume">Resume</button>
+</div>
+
+<div id="error"></div>
+
+<div class="layout">
+
+  <div class="image-panel">
+    <img id="elsImage" alt="ELS image">
+    <div id="imgCounter" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="annotation-panel">
+    <div id="questions"></div>
+    <button id="btnSubmit">Submit & Next</button>
+  </div>
+
+</div>
+
+<div class="admin-section">
+  <h3>Admin</h3>
+  <input id="adminToken" type="password" placeholder="Admin token">
+  <button onclick="downloadCSV()">Download all annotations (CSV)</button>
+</div>
+
+<script src="app.js"></script>
+</div>
+</body>
+</html>
