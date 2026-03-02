@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <title>ELS Consensus Annotation</title>
 
+<!-- ADDED: Google Font -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
+
 <style>
 
 /* ================= ORIGINAL APP STYLES (UNCHANGED) ================= */
@@ -159,6 +164,12 @@ button {
   margin-bottom: 15px;
 }
 
+/* ===== APPLY DM SERIF ONLY TO LOGIN TITLE ===== */
+#login-screen .login-card h1,
+#login-screen .login-card .subtitle {
+  font-family: 'DM Serif Display', serif;
+}
+
 /* ================= LOGIN SCREEN ================= */
 
 #login-screen {
@@ -234,7 +245,6 @@ button {
       <h1>ELSCAN</h1>
       <div class="subtitle" style="color:#aaa;">
         Ectopic Lymphoid Structure Consensus Annotation Network<br>
-        Blinded Human Structural Feature Encoding
       </div>
 
       <div class="login-box">
