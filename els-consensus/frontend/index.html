@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ELSCAN</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -10,169 +10,160 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Playfair+Display:wght@500&display=swap" rel="stylesheet" />
 
   <style>
-    /* ================= ORIGINAL APP STYLES ================= */
+    :root {
+      --bg: #f7f8fb;
+      --card: #ffffff;
+      --border: #d7dce5;
+      --text: #1e2733;
+      --subtle: #5b6878;
+      --accent: #0f6bd8;
+      --danger: #b42318;
+      --ok: #05603a;
+    }
+
+    * { box-sizing: border-box; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #f5f7fa;
       margin: 0;
-      padding: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at top right, #edf2ff 0%, var(--bg) 45%);
     }
 
-    .container {
-      width: 95%;
-      margin: auto;
-      padding: 25px;
+    main {
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 0 16px 20px;
     }
 
-    h1 {
-      font-weight: 600;
-      margin-bottom: 5px;
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 3px 10px rgba(20, 38, 66, 0.06);
     }
 
-    .subtitle {
-      color: #666;
-      font-size: 20px;
-      margin-bottom: 25px;
-    }
-
-    .top-bar {
-      display: flex;
+    .top-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
       gap: 10px;
       align-items: center;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
     }
 
-    input[type="text"],
-    input[type="password"] {
-      padding: 6px 8px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
+    input[type="text"] {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
     }
 
     button {
-      font-size: 15px;
-      padding: 8px 14px;
-      border-radius: 8px;
       border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
       cursor: pointer;
     }
 
-    #btnSubmit {
-      background-color: #1f6feb;
-      color: white;
-      width: 100%;
-      margin-top: 20px;
+    button.secondary {
+      background: #53627a;
     }
 
-    #btnSubmit:hover {
-      background-color: #155ac9;
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
 
-    #btnResume {
-      background-color: #e2e8f0;
+    #status {
+      margin-top: 10px;
+      min-height: 18px;
+      color: var(--subtle);
+      font-size: 14px;
     }
+
+    #status.error { color: var(--danger); }
+    #status.ok { color: var(--ok); }
 
     .layout {
-      display: flex;
-      gap: 30px;
+      display: grid;
+      grid-template-columns: 1.05fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
     }
 
-    .image-panel {
-      flex: 1.4;
-      background: white;
-      padding: 15px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    }
-
-    .image-panel img {
+    .image-wrap {
       width: 100%;
-      border-radius: 8px;
-    }
-
-    .annotation-panel {
-      flex: 1;
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-      max-height: 85vh;
-      overflow-y: auto;
-    }
-
-    .legend-box {
-      border: 1px solid #e5e7eb;
-      padding: 12px;
-      margin-bottom: 20px;
-      border-radius: 8px;
-      background: #fafafa;
-    }
-
-    .question-card {
-      border: 1px solid #e5e7eb;
-      padding: 14px;
-      margin-bottom: 18px;
+      aspect-ratio: 1 / 1;
+      display: grid;
+      place-items: center;
+      background: #f1f4f9;
+      border: 1px dashed #b8c3d4;
       border-radius: 10px;
-      background: white;
-      transition: 0.2s ease;
+      overflow: hidden;
     }
 
-    .question-card:hover {
-      background: #f9fbff;
+    #elsImage {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: none;
     }
 
-    .question-title {
-      font-weight: 600;
-      margin-bottom: 6px;
+    #imgCounter {
+      margin-top: 10px;
+      color: var(--subtle);
+      font-size: 14px;
     }
 
-    .question-desc {
-      font-size: 13px;
-      color: #666;
-      margin-bottom: 10px;
-    }
-
-    .options-row {
-      display: flex;
-      flex-wrap: wrap;
+    #questions {
+      display: grid;
       gap: 12px;
+      margin-bottom: 12px;
     }
 
-    .option-label {
-      background: #f1f5f9;
-      padding: 6px 10px;
-      border-radius: 6px;
-      cursor: pointer;
+    fieldset {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin: 0;
+      padding: 10px;
     }
 
-    .option-label input {
-      margin-right: 4px;
-    }
-
-    .admin-section {
-      margin-top: 40px;
-      padding: 15px;
-      background: #f1f5f9;
-      border-radius: 8px;
-    }
-
-    #error {
-      color: #b42318;
+    legend {
       font-weight: 700;
-      margin-bottom: 15px;
-      min-height: 20px;
+      padding: 0 6px;
+      font-size: 14px;
+    }
+
+    .desc {
+      margin: 0 0 8px;
+      color: var(--subtle);
+      font-size: 13px;
+      white-space: pre-line;
+    }
+
+    .option {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      margin: 6px 0;
+      font-size: 14px;
     }
 
     @media (max-width: 980px) {
       .layout {
-        flex-direction: column;
+        grid-template-columns: 1fr;
+      }
+
+      .top-row {
+        grid-template-columns: 1fr;
       }
     }
 
-    /* ================= LOGIN SCREEN (DESIGN 1) ================= */
-
+    /* Login screen (Code 1 style) */
     #login-screen {
       position: fixed;
       inset: 0;
@@ -181,7 +172,7 @@
       transition: opacity 0.5s ease;
       background: #0b1020;
       background: radial-gradient(circle at 50% 30%, #1a1440 0%, #0b1020 65%);
-      color: white;
+      color: #fff;
       font-family: "Inter", sans-serif;
     }
 
@@ -286,12 +277,16 @@
     }
 
     #login-screen .login input[type="text"] {
+      width: 220px;
       padding: 14px;
       border-radius: 8px;
       border: none;
-      width: 220px;
       background: rgba(255, 255, 255, 0.08);
-      color: white;
+      color: #fff;
+    }
+
+    #login-screen .login input[type="text"]::placeholder {
+      color: rgba(255, 255, 255, 0.75);
     }
 
     #login-screen .login button {
@@ -299,7 +294,7 @@
       border-radius: 8px;
       border: none;
       background: linear-gradient(45deg, #00f0ff, #ff4d4d);
-      color: white;
+      color: #fff;
       cursor: pointer;
       font-weight: 700;
     }
@@ -312,7 +307,6 @@
     }
   </style>
 </head>
-
 <body>
   <div id="login-screen">
     <div class="bg"></div>
@@ -328,393 +322,412 @@
     </div>
   </div>
 
-  <div class="container">
-    <h1>ELS Consensus Annotation</h1>
-    <div class="subtitle">Blinded Human Structural Feature Encoding</div>
+  <main>
+    <h2>ELS Consensus Annotation</h2>
 
-    <div class="top-bar">
-      <b>Annotator ID:</b>
-      <input id="annotatorId" type="text" />
-      <button id="btnResume" type="button">Resume</button>
-    </div>
+    <section class="card">
+      <div class="top-row">
+        <input id="annotatorId" type="text" placeholder="Annotator ID or Admin Token" />
+        <button id="enterBtn" type="button">Enter</button>
+        <button id="downloadBtn" class="secondary" type="button">Download CSV</button>
+      </div>
+      <div id="status" role="status"></div>
+    </section>
 
-    <div id="error"></div>
-
-    <div class="layout">
-      <div class="image-panel">
-        <img id="elsImage" alt="ELS image" />
-        <div id="imgCounter" style="margin-top:10px;"></div>
+    <section class="layout">
+      <div class="card">
+        <div class="image-wrap">
+          <img id="elsImage" alt="ELS image" />
+          <div id="emptyImageMsg">No image loaded</div>
+        </div>
+        <div id="imgCounter"></div>
       </div>
 
-      <div class="annotation-panel">
+      <div class="card">
         <div id="questions"></div>
-        <button id="btnSubmit" type="button">Submit & Next</button>
+        <button id="submitBtn" type="button">Submit</button>
       </div>
-    </div>
+    </section>
+  </main>
 
-    <div class="admin-section">
-      <h3>Admin</h3>
-      <input id="adminToken" type="password" placeholder="Admin token" />
-      <button id="btnDownload" type="button">Download all annotations (CSV)</button>
-    </div>
-  </div>
-
+  <!-- App logic inline (no dependency on external app.js path) -->
   <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const $ = (id) => document.getElementById(id);
+    (() => {
+      document.addEventListener("DOMContentLoaded", () => {
+        let schema = null;
+        let images = [];
+        let doneSet = new Set();
+        let idx = 0;
 
-      let schema = null;
-      let images = [];
-      let doneSet = new Set();
-      let idx = 0;
+        const annotatorInput = document.getElementById("annotatorId");
+        const submitBtn = document.getElementById("submitBtn");
+        const enterBtn = document.getElementById("enterBtn");
+        const downloadBtn = document.getElementById("downloadBtn");
+        const questionsEl = document.getElementById("questions");
+        const imageEl = document.getElementById("elsImage");
+        const counterEl = document.getElementById("imgCounter");
+        const statusEl = document.getElementById("status");
+        const emptyImageMsgEl = document.getElementById("emptyImageMsg");
 
-      const DISPLAY_QUESTION_TEXT = {
-        cell_types_present: "Which cell types are present in the ELS? (You may select more than one option)",
-        dominant_cell_population: "Which cell population appears to be the most abundant?",
-        cell_density: "How dense are the cells inside the ELS?",
-        b_t_separation: "How separated are the B-cell and T-cell areas?",
-        t_cell_ring: "Is there a T-cell ring at the edge of the ELS?",
-        gc_like_structure:
-          "Is there a GC-like structure? (GC-like = a clearly localized cluster of proliferating cells (green, Ki67+) situated within or tightly surrounded by a B- or T-cell-rich area (yellow or red), not diffusely distributed across the entire ELS)"
-      };
-
-      function setStatus(message, kind = "error") {
-        const el = $("error");
-        el.style.color = kind === "ok" ? "#05603a" : "#b42318";
-        el.textContent = message || "";
-      }
-
-      async function fetchJSON(url) {
-        const r = await fetch(url, { cache: "no-store" });
-        if (!r.ok) {
-          const body = await r.text();
-          throw new Error(body || `${url} failed`);
+        if (!annotatorInput || !submitBtn || !enterBtn || !downloadBtn || !questionsEl || !imageEl || !counterEl || !statusEl || !emptyImageMsgEl) {
+          console.error("Missing required DOM elements for app initialization.");
+          return;
         }
-        return r.json();
-      }
 
-      function imageUrl(name) {
-        return `/images/${encodeURIComponent(name)}?v=${Date.now()}`;
-      }
+        const DISPLAY_QUESTION_TEXT = {
+          cell_types_present: "Which cell types are present in the ELS? (You may select more than one option)",
+          dominant_cell_population: "Which cell population appears to be the most abundant?",
+          cell_density: "How dense are the cells inside the ELS?",
+          b_t_separation: "How separated are the B-cell and T-cell areas?",
+          t_cell_ring: "Is there a T-cell ring at the edge of the ELS?",
+          gc_like_structure:
+            "Is there a GC-like structure? (GC-like = a clearly localized cluster of proliferating cells (green, Ki67+) situated within or tightly surrounded by a B- or T-cell-rich area (yellow or red), not diffusely distributed across the entire ELS)"
+        };
 
-      function resetAnswers() {
-        document.querySelectorAll("#questions input").forEach((i) => { i.checked = false; });
-        document.querySelectorAll(".question-card").forEach((card) => {
-          card.style.border = "1px solid #e5e7eb";
-        });
-      }
-
-      function showCompleted() {
-        $("elsImage").removeAttribute("src");
-        $("imgCounter").innerText = "All images annotated";
-        $("btnSubmit").disabled = true;
-      }
-
-      function buildQuestions() {
-        $("questions").innerHTML = `
-          <div class="legend-box">
-            <b>Color Legend</b><br>
-            Yellow = B cells<br>
-            Red = T cells<br>
-            Green = Proliferating cells (Ki67+)
-          </div>
-        `;
-
-        for (const [q, spec] of Object.entries(schema)) {
-          const wrapper = document.createElement("div");
-          wrapper.className = "question-card";
-
-          const title = document.createElement("div");
-          title.className = "question-title";
-          title.innerText = DISPLAY_QUESTION_TEXT[q] || q;
-          wrapper.appendChild(title);
-
-          const options = document.createElement("div");
-          options.className = "options-row";
-
-          spec.options.forEach((opt) => {
-            const label = document.createElement("label");
-            label.className = "option-label";
-
-            const input = document.createElement("input");
-            input.type = spec.type === "multi" ? "checkbox" : "radio";
-            input.name = q;
-            input.value = opt;
-            input.dataset.q = q;
-
-            label.appendChild(input);
-            label.append(" " + opt);
-            options.appendChild(label);
-          });
-
-          wrapper.appendChild(options);
-          $("questions").appendChild(wrapper);
-        }
-      }
-
-      function collectAnswers() {
-        const a = {};
-        for (const [q, spec] of Object.entries(schema)) {
-          if (spec.type === "multi") {
-            a[q] = Array.from(document.querySelectorAll(`input[data-q="${q}"]:checked`)).map((x) => x.value);
-          } else {
-            const v = document.querySelector(`input[data-q="${q}"]:checked`);
-            a[q] = v ? v.value : "";
+        async function fetchJSON(url) {
+          const response = await fetch(url, { cache: "no-store" });
+          if (!response.ok) {
+            const payload = await response.text();
+            throw new Error(payload || `${url} failed: ${response.status}`);
           }
+          return response.json();
         }
-        return a;
-      }
 
-      function allAnswered(ans) {
-        let ok = true;
+        function setStatus(message, kind = "") {
+          statusEl.classList.remove("error", "ok");
+          if (kind) statusEl.classList.add(kind);
+          statusEl.textContent = message;
+        }
 
-        document.querySelectorAll(".question-card").forEach((card) => {
-          card.style.border = "1px solid #e5e7eb";
-        });
+        function renderQuestions() {
+          questionsEl.innerHTML = "";
 
-        for (const [q, spec] of Object.entries(schema)) {
-          if (spec.type === "multi" && ans[q].length === 0) ok = false;
-          if (spec.type !== "multi" && !ans[q]) ok = false;
+          for (const [key, config] of Object.entries(schema || {})) {
+            const fieldset = document.createElement("fieldset");
+            fieldset.className = "question";
+            fieldset.dataset.key = key;
+            fieldset.dataset.type = config.type;
 
-          if (!ans[q] || (Array.isArray(ans[q]) && ans[q].length === 0)) {
-            document.querySelectorAll(".question-card").forEach((card) => {
-              if (card.querySelector(`input[data-q="${q}"]`)) {
-                card.style.border = "2px solid #e11d48";
-              }
+            const legend = document.createElement("legend");
+            legend.textContent = DISPLAY_QUESTION_TEXT[key] || key;
+            fieldset.appendChild(legend);
+
+            (config.options || []).forEach((option, optionIndex) => {
+              const id = `q_${key}_${optionIndex}`;
+              const label = document.createElement("label");
+              label.className = "option";
+              label.setAttribute("for", id);
+
+              const input = document.createElement("input");
+              input.id = id;
+              input.name = `q_${key}`;
+              input.value = option;
+              input.type = config.type === "multi" ? "checkbox" : "radio";
+
+              const text = document.createElement("span");
+              text.textContent = option;
+
+              label.appendChild(input);
+              label.appendChild(text);
+              fieldset.appendChild(label);
             });
+
+            questionsEl.appendChild(fieldset);
           }
         }
 
-        if (!ok) {
-          setStatus("Please answer all questions before submitting.");
-        }
-        return ok;
-      }
-
-      function render() {
-        if (!images.length) {
-          $("elsImage").removeAttribute("src");
-          $("imgCounter").innerText = "No images found";
-          $("btnSubmit").disabled = true;
-          return;
-        }
-
-        if (idx === -1 || idx >= images.length) {
-          showCompleted();
-          return;
-        }
-
-        $("elsImage").src = imageUrl(images[idx]);
-        $("imgCounter").innerText = `Image ${idx + 1} / ${images.length}`;
-        $("btnSubmit").disabled = false;
-        resetAnswers();
-      }
-
-      async function resume() {
-        const annotator = $("annotatorId").value.trim();
-        if (!annotator) {
-          setStatus("Annotator ID required");
-          return false;
-        }
-
-        localStorage.setItem("els.annotator", annotator);
-
-        try {
-          const done = await fetchJSON(`/annotated/${encodeURIComponent(annotator)}`);
-          doneSet = new Set(done);
-
-          idx = images.findIndex((x) => !doneSet.has(x));
-          if (idx === -1) {
-            showCompleted();
-            setStatus("All images already annotated", "ok");
-            return true;
+        function renderImage() {
+          if (!images.length) {
+            imageEl.style.display = "none";
+            emptyImageMsgEl.style.display = "block";
+            emptyImageMsgEl.textContent = "No image loaded";
+            counterEl.textContent = "No images found in /images";
+            submitBtn.disabled = true;
+            return;
           }
 
-          render();
-          setStatus(`Resumed from image ${idx + 1}`, "ok");
-          return true;
-        } catch (err) {
-          setStatus(err.message || "Failed to load progress");
-          return false;
-        }
-      }
+          if (idx >= images.length) {
+            imageEl.style.display = "none";
+            emptyImageMsgEl.style.display = "block";
+            emptyImageMsgEl.textContent = "All images annotated";
+            counterEl.textContent = `Completed ${images.length}/${images.length}`;
+            submitBtn.disabled = true;
+            return;
+          }
 
-      async function submit() {
-        const annotator = $("annotatorId").value.trim();
-        if (!annotator) {
-          setStatus("Annotator ID required");
-          return;
-        }
-
-        if (!images.length || idx < 0 || idx >= images.length) {
-          setStatus("No image to submit");
-          return;
+          const name = images[idx];
+          imageEl.src = `/images/${encodeURIComponent(name)}`;
+          imageEl.style.display = "block";
+          emptyImageMsgEl.style.display = "none";
+          counterEl.textContent = `Image ${idx + 1}/${images.length}: ${name}`;
+          submitBtn.disabled = false;
         }
 
-        const answers = collectAnswers();
-        if (!allAnswered(answers)) return;
+        function collectAnswers() {
+          const answers = {};
+          const missingSingles = [];
 
-        $("btnSubmit").disabled = true;
-        setStatus("Submitting...", "ok");
+          document.querySelectorAll("fieldset.question").forEach((fieldset) => {
+            const key = fieldset.dataset.key;
+            const type = fieldset.dataset.type;
 
-        try {
-          const r = await fetch("/annotate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              image_id: images[idx],
-              annotator_id: annotator,
-              answers
-            })
+            if (type === "single") {
+              const selected = fieldset.querySelector('input[type="radio"]:checked');
+              if (selected) answers[key] = selected.value;
+              else missingSingles.push(key);
+              return;
+            }
+
+            if (type === "multi") {
+              const selected = Array.from(fieldset.querySelectorAll('input[type="checkbox"]:checked')).map((x) => x.value);
+              answers[key] = selected;
+            }
           });
 
-          if (!r.ok) {
-            const body = await r.text();
-            throw new Error(body || "Submit failed");
+          return { answers, missingSingles };
+        }
+
+        async function resumeProgress() {
+          const annotatorId = annotatorInput.value.trim();
+          if (!annotatorId) {
+            setStatus("Enter annotator ID first", "error");
+            return;
           }
 
-          doneSet.add(images[idx]);
-          await resume();
-          setStatus("Saved", "ok");
-        } catch (err) {
-          setStatus(err.message || "Submit failed");
-          $("btnSubmit").disabled = false;
-        }
-      }
+          try {
+            localStorage.setItem("els.annotator", annotatorId);
+            const done = await fetchJSON(`/annotated/${encodeURIComponent(annotatorId)}`);
+            doneSet = new Set(done);
 
-      function downloadCSV() {
-        const t = $("adminToken").value.trim();
-        if (!t) {
-          setStatus("Admin token required");
-          return;
-        }
-        window.open(`/admin/export/annotations?token=${encodeURIComponent(t)}`, "_blank");
-      }
+            idx = images.findIndex((name) => !doneSet.has(name));
+            if (idx === -1) {
+              imageEl.style.display = "none";
+              emptyImageMsgEl.style.display = "block";
+              emptyImageMsgEl.textContent = "All images annotated";
+              counterEl.textContent = `Completed ${images.length}/${images.length}`;
+              submitBtn.disabled = true;
+              setStatus("All images annotated", "ok");
+              return;
+            }
 
-      function closeLoginScreen() {
-        const loginScreen = $("login-screen");
-        loginScreen.style.opacity = "0";
-        setTimeout(() => { loginScreen.style.display = "none"; }, 500);
-      }
-
-      async function submitLogin() {
-        const id = $("loginAnnotatorId").value.trim();
-        if (!id) {
-          $("loginAnnotatorId").focus();
-          return;
-        }
-
-        $("annotatorId").value = id;
-        localStorage.setItem("els.annotator", id);
-
-        const ok = await resume();
-        if (ok) closeLoginScreen();
-      }
-
-      function initLoginAnimation() {
-        const els = $("els");
-        const size = els.offsetWidth;
-        const center = size / 2;
-
-        function cluster(n, r1, r2, type) {
-          for (let i = 0; i < n; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const r = r1 + Math.random() * (r2 - r1);
-
-            const x = center + r * Math.cos(angle);
-            const y = center + r * Math.sin(angle);
-
-            const depthRand = Math.random();
-            const depthClass = depthRand < 0.33 ? "depth-back" : depthRand < 0.66 ? "depth-mid" : "depth-front";
-            const scale = depthClass === "depth-front" ? 1.15 : depthClass === "depth-mid" ? 0.9 : 0.7;
-
-            const d = document.createElement("div");
-            d.className = "cell " + type + " " + depthClass;
-            d.style.width = (6 * scale) + "px";
-            d.style.height = (6 * scale) + "px";
-            d.style.transform = `translate(${Math.random() * size}px,${Math.random() * size}px)`;
-
-            els.appendChild(d);
-
-            setTimeout(() => {
-              d.style.transform = `translate(${x}px,${y}px) scale(${scale})`;
-            }, 200);
+            renderImage();
+            setStatus(`Resumed from image ${idx + 1}`, "ok");
+          } catch (error) {
+            setStatus(error.message || "Failed to resume progress", "error");
           }
         }
 
-        cluster(200, 0, size * 0.18, "b");
-        cluster(260, size * 0.18, size * 0.32, "t");
-        cluster(180, size * 0.32, size * 0.45, "k");
+        function clearForm() {
+          questionsEl.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach((x) => {
+            x.checked = false;
+          });
+        }
 
-        setTimeout(() => {
-          els.style.opacity = "0";
-          els.style.transform = "translate(-50%,-50%) scale(1.08)";
-        }, 3500);
+        async function initializeApp() {
+          try {
+            setStatus("Loading schema and images...");
 
-        setTimeout(() => {
-          $("loginContent").style.opacity = "1";
-        }, 4500);
+            const [schemaData, imagesData] = await Promise.all([
+              fetchJSON("/schema"),
+              fetchJSON("/images-list"),
+            ]);
+            schema = schemaData;
+            images = imagesData;
 
-        setTimeout(() => {
-          const t = $("loginTitle");
-          t.style.opacity = "1";
-          t.style.transform = "translateY(0)";
-        }, 4800);
+            renderQuestions();
 
-        setTimeout(() => {
-          const s = $("loginSubtitle");
-          s.style.opacity = "1";
-          s.style.transform = "translateY(0)";
-        }, 5400);
+            const lastAnnotator = localStorage.getItem("els.annotator");
+            if (lastAnnotator) {
+              annotatorInput.value = lastAnnotator;
+              await resumeProgress();
+            } else {
+              renderImage();
+              setStatus("Ready");
+            }
+          } catch (error) {
+            setStatus(error.message || "Initialization failed", "error");
+            submitBtn.disabled = true;
+          }
+        }
 
-        setTimeout(() => {
-          const p = $("loginPanel");
-          p.style.opacity = "1";
-          p.style.transform = "translateY(0)";
-          $("loginAnnotatorId").focus();
-        }, 6000);
-      }
+        enterBtn.addEventListener("click", async () => {
+          await resumeProgress();
+        });
 
-      $("btnResume").addEventListener("click", resume);
-      $("btnSubmit").addEventListener("click", submit);
-      $("btnDownload").addEventListener("click", downloadCSV);
+        downloadBtn.addEventListener("click", async () => {
+          const token = annotatorInput.value.trim();
+          if (!token) {
+            setStatus("Enter admin token first", "error");
+            return;
+          }
 
-      $("loginEnter").addEventListener("click", submitLogin);
-      $("loginAnnotatorId").addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          submitLogin();
+          try {
+            window.open(`/admin/export/annotations?token=${encodeURIComponent(token)}`, "_blank");
+            setStatus("CSV download started", "ok");
+          } catch (error) {
+            setStatus(error.message || "Export failed", "error");
+          }
+        });
+
+        submitBtn.addEventListener("click", async () => {
+          if (!images.length || idx >= images.length) {
+            setStatus("No images left to annotate", "error");
+            return;
+          }
+
+          const annotatorId = annotatorInput.value.trim();
+          if (!annotatorId) {
+            setStatus("Annotator ID is required", "error");
+            return;
+          }
+
+          const { answers, missingSingles } = collectAnswers();
+          if (missingSingles.length) {
+            setStatus(`Complete required single-choice questions: ${missingSingles.join(", ")}`, "error");
+            return;
+          }
+
+          submitBtn.disabled = true;
+          setStatus("Submitting...");
+
+          try {
+            const response = await fetch("/annotate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                image_id: images[idx],
+                annotator_id: annotatorId,
+                answers,
+              }),
+            });
+
+            if (!response.ok) {
+              const payload = await response.text();
+              throw new Error(payload || `Submit failed: ${response.status}`);
+            }
+
+            clearForm();
+            doneSet.add(images[idx]);
+            await resumeProgress();
+          } catch (error) {
+            setStatus(error.message || "Submit failed", "error");
+            submitBtn.disabled = false;
+            return;
+          }
+
+          if (idx < images.length) submitBtn.disabled = false;
+        });
+
+        initializeApp();
+      });
+    })();
+  </script>
+
+  <!-- Login animation + bridge to app input -->
+  <script>
+    (() => {
+      document.addEventListener("DOMContentLoaded", () => {
+        try {
+          const els = document.getElementById("els");
+          const loginScreen = document.getElementById("login-screen");
+          const loginInput = document.getElementById("loginAnnotatorId");
+          const loginEnter = document.getElementById("loginEnter");
+          const appInput = document.getElementById("annotatorId");
+          const appEnterBtn = document.getElementById("enterBtn");
+          const loginContent = document.getElementById("loginContent");
+          const loginTitle = document.getElementById("loginTitle");
+          const loginSubtitle = document.getElementById("loginSubtitle");
+          const loginPanel = document.getElementById("loginPanel");
+
+          if (!els || !loginScreen || !loginInput || !loginEnter || !appInput || !appEnterBtn || !loginContent || !loginTitle || !loginSubtitle || !loginPanel) {
+            return;
+          }
+
+          const size = els.offsetWidth;
+          const center = size / 2;
+
+          function cluster(n, r1, r2, type) {
+            for (let i = 0; i < n; i += 1) {
+              const angle = Math.random() * Math.PI * 2;
+              const r = r1 + Math.random() * (r2 - r1);
+
+              const x = center + r * Math.cos(angle);
+              const y = center + r * Math.sin(angle);
+
+              const depthRand = Math.random();
+              const depthClass = depthRand < 0.33 ? "depth-back" : depthRand < 0.66 ? "depth-mid" : "depth-front";
+
+              const scale = depthClass === "depth-front" ? 1.15 : depthClass === "depth-mid" ? 0.9 : 0.7;
+
+              const d = document.createElement("div");
+              d.className = `cell ${type} ${depthClass}`;
+              d.style.width = `${6 * scale}px`;
+              d.style.height = `${6 * scale}px`;
+              d.style.transform = `translate(${Math.random() * size}px,${Math.random() * size}px)`;
+
+              els.appendChild(d);
+
+              setTimeout(() => {
+                d.style.transform = `translate(${x}px,${y}px) scale(${scale})`;
+              }, 200);
+            }
+          }
+
+          cluster(200, 0, size * 0.18, "b");
+          cluster(260, size * 0.18, size * 0.32, "t");
+          cluster(180, size * 0.32, size * 0.45, "k");
+
+          setTimeout(() => {
+            els.style.opacity = "0";
+            els.style.transform = "translate(-50%,-50%) scale(1.08)";
+          }, 3500);
+
+          setTimeout(() => { loginContent.style.opacity = "1"; }, 4500);
+          setTimeout(() => {
+            loginTitle.style.opacity = "1";
+            loginTitle.style.transform = "translateY(0)";
+          }, 4800);
+
+          setTimeout(() => {
+            loginSubtitle.style.opacity = "1";
+            loginSubtitle.style.transform = "translateY(0)";
+          }, 5400);
+
+          setTimeout(() => {
+            loginPanel.style.opacity = "1";
+            loginPanel.style.transform = "translateY(0)";
+            loginInput.focus();
+          }, 6000);
+
+          function closeLoginScreen() {
+            loginScreen.style.opacity = "0";
+            setTimeout(() => { loginScreen.style.display = "none"; }, 500);
+          }
+
+          function submitLogin() {
+            const id = loginInput.value.trim();
+            if (!id) {
+              loginInput.focus();
+              return;
+            }
+
+            appInput.value = id;
+            appEnterBtn.click();
+            closeLoginScreen();
+          }
+
+          loginEnter.addEventListener("click", submitLogin);
+          loginInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              submitLogin();
+            }
+          });
+        } catch (error) {
+          console.error("Login screen initialization failed:", error);
         }
       });
-
-      (async function initialize() {
-        try {
-          const [schemaData, imagesData] = await Promise.all([
-            fetchJSON("/schema"),
-            fetchJSON("/images-list")
-          ]);
-
-          schema = schemaData;
-          images = imagesData;
-          buildQuestions();
-
-          const last = localStorage.getItem("els.annotator");
-          if (last) {
-            $("annotatorId").value = last;
-            $("loginAnnotatorId").value = last;
-            const ok = await resume();
-            if (ok) closeLoginScreen();
-          } else {
-            idx = 0;
-            render();
-          }
-        } catch (err) {
-          setStatus(err.message || "Initialization failed");
-        }
-
-        initLoginAnimation();
-      })();
-    });
+    })();
   </script>
 </body>
 </html>
