@@ -1,214 +1,3 @@
-<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>ELS Consensus Annotation</title>
-
-<style>
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background-color: #f5f7fa;
-  margin: 0;
-  padding: 0;
-}
-
-.container {
-  width: 95%;
-  margin: auto;
-  padding: 25px;
-}
-
-h1 {
-  font-weight: 600;
-  margin-bottom: 5px;
-}
-
-.subtitle {
-  color: #666;
-  font-size: 14px;
-  margin-bottom: 25px;
-}
-
-.top-bar {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-input[type="text"],
-input[type="password"] {
-  padding: 6px 8px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-}
-
-button {
-  font-size: 15px;
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-}
-
-#btnSubmit {
-  background-color: #1f6feb;
-  color: white;
-  width: 100%;
-  margin-top: 20px;
-}
-
-.layout {
-  display: flex;
-  gap: 30px;
-}
-
-.image-panel {
-  flex: 1.4;
-  background: white;
-  padding: 15px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-}
-
-.image-panel img {
-  width: 100%;
-  border-radius: 8px;
-}
-
-.annotation-panel {
-  flex: 1;
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  max-height: 85vh;
-  overflow-y: auto;
-}
-
-.admin-section {
-  margin-top: 40px;
-  padding: 15px;
-  background: #f1f5f9;
-  border-radius: 8px;
-}
-
-#error {
-  color: red;
-  font-weight: bold;
-  margin-bottom: 15px;
-}
-
-/* ===== LOGIN SCREEN ===== */
-
-#login-screen {
-  position: fixed;
-  inset: 0;
-  background: #0b0f14;
-  z-index: 9999;
-  overflow: hidden;
-}
-
-#elsCanvas {
-  position: absolute;
-  inset: 0;
-}
-
-.login-wrapper {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  color: white;
-  z-index: 2;
-}
-
-.login-card {
-  opacity: 0;
-  transition: opacity 1.2s ease;
-  text-align: center;
-}
-
-.login-box {
-  margin-top: 25px;
-  display: flex;
-  gap: 10px;
-}
-
-.login-box input {
-  padding: 10px 14px;
-  border-radius: 6px;
-  border: none;
-}
-
-.login-box button {
-  background: #1f6feb;
-  color: white;
-  padding: 10px 16px;
-  border-radius: 6px;
-}
-
-</style>
-</head>
-
-<body>
-
-<!-- LOGIN OVERLAY -->
-<div id="login-screen">
-  <canvas id="elsCanvas"></canvas>
-
-  <div class="login-wrapper">
-    <div class="login-card" id="loginCard">
-      <h1>ELSCAN</h1>
-      <div class="subtitle" style="color:#aaa;">
-        Ectopic Lymphoid Structure Consensus Annotation Network<br>
-        Blinded Human Structural Feature Encoding
-      </div>
-
-      <div class="login-box">
-        <input id="loginAnnotatorId" type="text" placeholder="Annotator ID">
-        <button id="loginEnter">Enter</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-<div class="container">
-
-<h1>ELS Consensus Annotation</h1>
-<div class="subtitle">Blinded Human Structural Feature Encoding</div>
-
-<div class="top-bar" style="display:none;">
-  <b>Annotator ID:</b>
-  <input id="annotatorId" type="text">
-  <button id="btnResume">Resume</button>
-</div>
-
-<div id="error"></div>
-
-<div class="layout">
-  <div class="image-panel">
-    <img id="elsImage" alt="ELS image">
-    <div id="imgCounter" style="margin-top:10px;"></div>
-  </div>
-
-  <div class="annotation-panel">
-    <div id="questions"></div>
-    <button id="btnSubmit">Submit & Next</button>
-  </div>
-</div>
-
-<div class="admin-section">
-  <h3>Admin</h3>
-  <input id="adminToken" type="password" placeholder="Admin token">
-  <button onclick="downloadCSV()">Download all annotations (CSV)</button>
-</div>
-
-<script src="app.js"></script>
-
 <script>
 document.addEventListener("DOMContentLoaded", function () {
 
@@ -220,7 +9,7 @@ document.addEventListener("DOMContentLoaded", function () {
   let width, height;
   let cells = [];
   let startTime = null;
-  const duration = 8000;
+  const duration = 8000; // נשאר כמו שרצית
 
   function resize() {
     width = canvas.width = window.innerWidth;
@@ -236,12 +25,13 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function createCells() {
+    cells = []; // בטיחותי
     const cx = width / 2;
     const cy = height / 2;
-
     const gcShift = randomPoint(20);
 
     for (let i = 0; i < 320; i++) {
+
       let type;
       if (i < 150) type = "B";
       else if (i < 280) type = "T";
@@ -277,8 +67,10 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function drawCell(c, progress) {
-    c.x += (c.targetX - c.x) * 0.04;
-    c.y += (c.targetY - c.y) * 0.04;
+
+    // האצה קלה בהתכנסות
+    c.x += (c.targetX - c.x) * 0.07;
+    c.y += (c.targetY - c.y) * 0.07;
 
     ctx.beginPath();
     ctx.arc(c.x, c.y, 2.5, 0, Math.PI * 2);
@@ -297,7 +89,9 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function animate(timestamp) {
+
     if (!startTime) startTime = timestamp;
+
     const elapsed = timestamp - startTime;
     const progress = Math.min(elapsed / duration, 1);
 
@@ -306,10 +100,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
     cells.forEach(c => drawCell(c, progress));
 
+    // הכותרת עולה לפני סוף האנימציה
+    if (progress > 0.85) {
+      loginCard.style.opacity = 1;
+    }
+
     if (progress < 1) {
       requestAnimationFrame(animate);
-    } else {
-      loginCard.style.opacity = 1;
     }
   }
 
@@ -329,12 +126,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.getElementById("annotatorId").value = id;
     document.getElementById("btnResume").click();
-
     loginScreen.style.display = "none";
   });
 
 });
 </script>
-
-</body>
-</html>
