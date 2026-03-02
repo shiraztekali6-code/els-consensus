@@ -219,13 +219,6 @@ button {
   background: #155ac9;
 }
 
-#annotatorDisplay {
-  background: #f1f5f9;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-weight: 600;
-}
-
 </style>
 </head>
 
@@ -241,6 +234,7 @@ button {
       <h1>ELSCAN</h1>
       <div class="subtitle" style="color:#aaa;">
         Ectopic Lymphoid Structure Consensus Annotation Network<br>
+        Blinded Human Structural Feature Encoding
       </div>
 
       <div class="login-box">
@@ -255,13 +249,13 @@ button {
 
 <div class="container">
 
-<h1>ELSCAN</h1>
-<div class="subtitle">Ectopic Lymphoid Structure Consensus Annotation Network</div>
+<h1>ELS Consensus Annotation</h1>
+<div class="subtitle">Blinded Human Structural Feature Encoding</div>
 
 <div class="top-bar">
   <b>Annotator ID:</b>
-  <span id="annotatorDisplay"></span>
-  <input id="annotatorId" type="hidden">
+  <input id="annotatorId" type="text">
+  <button id="btnResume">Resume</button>
 </div>
 
 <div id="error"></div>
@@ -369,6 +363,7 @@ document.addEventListener("DOMContentLoaded", function () {
     c.y += (c.targetY - c.y) * speed;
 
     ctx.globalAlpha = c.alpha;
+
     ctx.shadowBlur = 8 + c.depth * 12;
     ctx.shadowColor =
       c.type === "B" ? "#FFD84D" :
@@ -426,8 +421,6 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!id) return;
 
     document.getElementById("annotatorId").value = id;
-    document.getElementById("annotatorDisplay").textContent = id;
-
     loginScreen.style.display = "none";
   });
 
