@@ -6,7 +6,7 @@
 
 <style>
 
-/* ================= ORIGINAL APP STYLES (UNCHANGED) ================= */
+/* ================= ORIGINAL APP STYLES ================= */
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -32,11 +32,9 @@ h1 {
   margin-bottom: 25px;
 }
 
+/* ⬇️ מוסתר אך נשאר לוגית */
 .top-bar {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 20px;
+  display: none;
 }
 
 input[type="text"],
@@ -63,10 +61,6 @@ button {
 
 #btnSubmit:hover {
   background-color: #155ac9;
-}
-
-#btnResume {
-  background-color: #e2e8f0;
 }
 
 .layout {
@@ -118,9 +112,9 @@ button {
   background: #f9fbff;
 }
 
+/* ⬇️ מסתיר את הכותרות המכוערות */
 .question-title {
-  font-weight: 600;
-  margin-bottom: 6px;
+  display: none;
 }
 
 .question-desc {
@@ -253,9 +247,7 @@ button {
 <div class="subtitle">Blinded Human Structural Feature Encoding</div>
 
 <div class="top-bar">
-  <b>Annotator ID:</b>
-  <input id="annotatorId" type="text">
-  <button id="btnResume">Resume</button>
+  <input id="annotatorId" type="hidden">
 </div>
 
 <div id="error"></div>
@@ -358,7 +350,6 @@ document.addEventListener("DOMContentLoaded", function () {
   function drawCell(c) {
 
     const speed = 0.03 + c.depth * 0.03;
-
     c.x += (c.targetX - c.x) * speed;
     c.y += (c.targetY - c.y) * speed;
 
@@ -373,9 +364,10 @@ document.addEventListener("DOMContentLoaded", function () {
     ctx.beginPath();
     ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2);
 
-    if (c.type === "B") ctx.fillStyle = "#FFD84D";
-    if (c.type === "T") ctx.fillStyle = "#FF4D4D";
-    if (c.type === "K") ctx.fillStyle = "#39FF88";
+    ctx.fillStyle =
+      c.type === "B" ? "#FFD84D" :
+      c.type === "T" ? "#FF4D4D" :
+                       "#39FF88";
 
     ctx.fill();
 
