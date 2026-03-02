@@ -5,6 +5,8 @@
   <title>ELS Consensus Annotation</title>
 
   <style>
+    /* ================= ORIGINAL APP STYLES ================= */
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: #f5f7fa;
@@ -155,44 +157,238 @@
       font-weight: bold;
       margin-bottom: 15px;
     }
+
+    /* ================= LOGIN OVERLAY (ADDED) ================= */
+
+    #login-screen {
+      position: fixed;
+      inset: 0;
+      background: #0b0f14;
+      z-index: 9999;
+    }
+
+    #elsCanvas {
+      position: absolute;
+      inset: 0;
+    }
+
+    .login-wrapper {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .login-card {
+      text-align: center;
+      color: white;
+      opacity: 0;
+      transition: opacity 1.5s ease;
+    }
+
+    .login-card h1 {
+      font-size: 48px;
+      margin-bottom: 10px;
+      letter-spacing: 3px;
+    }
+
+    .login-box {
+      margin-top: 25px;
+    }
+
+    .login-box input {
+      padding: 10px 14px;
+      width: 220px;
+      border-radius: 8px;
+      border: none;
+      margin-right: 10px;
+    }
+
+    .login-box button {
+      padding: 10px 16px;
+      border-radius: 8px;
+      background: #1f6feb;
+      color: white;
+      cursor: pointer;
+    }
+
+    .login-box button:hover {
+      background: #155ac9;
+    }
+
   </style>
 </head>
 
 <body>
+
+<!-- ================= LOGIN SCREEN ================= -->
+
+<div id="login-screen">
+  <canvas id="elsCanvas"></canvas>
+
+  <div class="login-wrapper">
+    <div class="login-card" id="loginCard">
+      <h1>ELSCAN</h1>
+      <div class="subtitle" style="color:#aaa;">
+        Ectopic Lymphoid Structure Consensus Annotation Network<br>
+        Blinded Human Structural Feature Encoding
+      </div>
+
+      <div class="login-box">
+        <input id="loginAnnotatorId" type="text" placeholder="Annotator ID">
+        <button id="loginEnter">Enter</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MAIN APPLICATION ================= -->
+
 <div class="container">
 
-<h1>ELS Consensus Annotation</h1>
-<div class="subtitle">Blinded Human Structural Feature Encoding</div>
+  <h1>ELS Consensus Annotation</h1>
+  <div class="subtitle">Blinded Human Structural Feature Encoding</div>
 
-<div class="top-bar">
-  <b>Annotator ID:</b>
-  <input id="annotatorId" type="text">
-  <button id="btnResume">Resume</button>
-</div>
-
-<div id="error"></div>
-
-<div class="layout">
-
-  <div class="image-panel">
-    <img id="elsImage" alt="ELS image">
-    <div id="imgCounter" style="margin-top:10px;"></div>
+  <div class="top-bar">
+    <b>Annotator ID:</b>
+    <input id="annotatorId" type="text">
+    <button id="btnResume">Resume</button>
   </div>
 
-  <div class="annotation-panel">
-    <div id="questions"></div>
-    <button id="btnSubmit">Submit & Next</button>
+  <div id="error"></div>
+
+  <div class="layout">
+    <div class="image-panel">
+      <img id="elsImage" alt="ELS image">
+      <div id="imgCounter" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="annotation-panel">
+      <div id="questions"></div>
+      <button id="btnSubmit">Submit & Next</button>
+    </div>
   </div>
 
-</div>
+  <div class="admin-section">
+    <h3>Admin</h3>
+    <input id="adminToken" type="password" placeholder="Admin token">
+    <button onclick="downloadCSV()">Download all annotations (CSV)</button>
+  </div>
 
-<div class="admin-section">
-  <h3>Admin</h3>
-  <input id="adminToken" type="password" placeholder="Admin token">
-  <button onclick="downloadCSV()">Download all annotations (CSV)</button>
 </div>
 
 <script src="app.js"></script>
-</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const canvas = document.getElementById("elsCanvas");
+  const ctx = canvas.getContext("2d");
+  const loginCard = document.getElementById("loginCard");
+  const loginScreen = document.getElementById("login-screen");
+
+  let width, height;
+  let cells = [];
+  let startTime = null;
+  const duration = 6000;
+
+  function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  }
+
+  window.addEventListener("resize", resize);
+  resize();
+
+  function randomPoint(radius) {
+    const theta = Math.random() * Math.PI * 2;
+    const r = Math.sqrt(Math.random()) * radius;
+    return { x: r * Math.cos(theta), y: r * Math.sin(theta) };
+  }
+
+  function createCells() {
+    const cx = width / 2;
+    const cy = height / 2;
+    const gcShift = randomPoint(20);
+
+    for (let i = 0; i < 320; i++) {
+      let type;
+      if (i < 150) type = "B";
+      else if (i < 280) type = "T";
+      else type = "K";
+
+      let target;
+
+      if (type === "B") target = randomPoint(80);
+
+      if (type === "T") {
+        const inner = 60;
+        const outer = 150;
+        const theta = Math.random() * Math.PI * 2;
+        const r = inner + Math.random() * (outer - inner);
+        target = { x: r * Math.cos(theta), y: r * Math.sin(theta) };
+      }
+
+      if (type === "K") {
+        const local = randomPoint(25);
+        target = { x: gcShift.x + local.x, y: gcShift.y + local.y };
+      }
+
+      cells.push({
+        type,
+        x: Math.random() * width,
+        y: Math.random() * height,
+        targetX: cx + target.x,
+        targetY: cy + target.y
+      });
+    }
+  }
+
+  function drawCell(c) {
+    c.x += (c.targetX - c.x) * 0.04;
+    c.y += (c.targetY - c.y) * 0.04;
+
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 2.5, 0, Math.PI * 2);
+
+    if (c.type === "B") ctx.fillStyle = "#FFD84D";
+    if (c.type === "T") ctx.fillStyle = "#FF4D4D";
+    if (c.type === "K") ctx.fillStyle = "#39FF88";
+
+    ctx.fill();
+  }
+
+  function animate(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const elapsed = timestamp - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+
+    ctx.fillStyle = "#0b0f14";
+    ctx.fillRect(0, 0, width, height);
+
+    cells.forEach(drawCell);
+
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      loginCard.style.opacity = 1;
+    }
+  }
+
+  createCells();
+  requestAnimationFrame(animate);
+
+  document.getElementById("loginEnter").addEventListener("click", function () {
+    const id = document.getElementById("loginAnnotatorId").value.trim();
+    if (!id) return;
+
+    document.getElementById("annotatorId").value = id;
+    loginScreen.style.display = "none";
+  });
+
+});
+</script>
+
 </body>
 </html>
